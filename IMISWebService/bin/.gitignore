@@ -1,0 +1,6 @@
+# ignore everything except needed libraries
+*
+!ExactComponents.dll
+!SevenZipSharp.dll
+!System.Data.SQLite.dll
+!.gitignore
