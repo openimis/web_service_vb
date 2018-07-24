@@ -18,7 +18,7 @@
 x64/
 x86/
 bld/
-# [Bb]in/
+[Bb]in/
 [Oo]bj/
 [Ll]og/
 
@@ -260,3 +260,5 @@ paket-files/
 __pycache__/
 *.pyc
 
+# SonarQube 
+.sonarqube
