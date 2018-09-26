@@ -29,6 +29,9 @@ Imports System.IO
 Imports System.Web.Script.Serialization
 Imports System.Web.Script.Services
 Imports System.Web.Services
+Imports System.Xml
+Imports Newtonsoft.Json
+
 
 ' To allow this Web Service to be called from script, using ASP.NET AJAX, uncomment the following line.
 ' <System.Web.Script.Services.ScriptService()> _
@@ -40,8 +43,8 @@ Public Class Service1
     Inherits System.Web.Services.WebService
 
 
-    <WebMethod()> _
-    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)> _
+    <WebMethod()>
+    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)>
     Public Function getFTPCredentials() As String
         Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
         Dim con As New SqlConnection(ConStr)
@@ -80,8 +83,8 @@ Public Class Service1
         Return JString
 
     End Function
-    <WebMethod()> _
-    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)> _
+    <WebMethod()>
+    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)>
     Public Function EnquireInsuree(ByVal CHFID As String) As String
 
         Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
@@ -195,7 +198,7 @@ Public Class Service1
         Return jString
 
     End Function
-    <WebMethod()> _
+    <WebMethod()>
     Public Function GetCurrentVersion(ByVal Field As String) As String
         Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
         Dim con As New SqlConnection(ConStr)
@@ -213,7 +216,7 @@ Public Class Service1
         Return dt.Rows(0)(0)
 
     End Function
-    <WebMethod()> _
+    <WebMethod()>
     Public Function isUniqueReceiptNo(ByVal ReceiptNo As String, CHFID As String) As Boolean
         Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
         Dim con As New SqlConnection(ConStr)
@@ -265,100 +268,261 @@ Public Class Service1
         End If
 
     End Function
-    <WebMethod()> _
-    Public Function isValidRenewal(ByVal FileName As String) As Boolean
+    <WebMethod()>
+    Public Function isValidRenewal(ByVal FileName As String) As Integer
+
+        Dim FilePath As String = Server.MapPath(ConfigurationManager.AppSettings("FromPhone_Renewal"))
+
+
+        Dim xmlFile As String = FilePath & FileName
+
+        Dim XML As New XmlDocument
+        XML.Load(xmlFile)
+
+        For Each node As XmlNode In XML
+            If node.NodeType = XmlNodeType.XmlDeclaration Then
+                XML.RemoveChild(node)
+            End If
+        Next
         Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
         Dim con As New SqlConnection(ConStr)
         Dim sSQL As String = ""
 
-        Dim FilePath As String = Server.MapPath(ConfigurationManager.AppSettings("FromPhone_Renewal"))
 
         sSQL = "uspIsValidRenewal"
 
         Dim cmd As New SqlCommand(sSQL, con)
         cmd.CommandType = CommandType.StoredProcedure
 
-        cmd.Parameters.Add("@FileName", SqlDbType.VarChar, 100).Value = FilePath & FileName
+        cmd.Parameters.Add("@FileName", SqlDbType.VarChar, 200).Value = xmlFile
+        cmd.Parameters.Add("@XML", SqlDbType.Xml).Value = XML.InnerXml
         cmd.Parameters.Add("@RV", SqlDbType.Int)
         cmd.Parameters("@RV").Direction = ParameterDirection.ReturnValue
 
         If con.State = ConnectionState.Closed Then con.Open()
+        Dim rv As Integer = 2
+        Try
+            cmd.ExecuteNonQuery()
+            rv = cmd.Parameters("@RV").Value
+        Catch ex As Exception
+            rv = 2
+        End Try
 
-        cmd.ExecuteScalar()
 
-        Dim rv As Integer = cmd.Parameters("@RV").Value
-
-        'Dim da As New SqlDataAdapter(cmd)
-        'Dim dt As New DataTable
-        'da.Fill(dt)
-
-        If rv = 0 Then
-            Return True
+        If rv = 0 Or rv = -4 Then
+            Return 1 'Accepted
+        ElseIf rv = -1 Or rv = -2 Or rv = -3 Then
+            MoveFileToRejectedFolder(Server.MapPath(ConfigurationManager.AppSettings("FromPhone_Renewal") & FileName & ""), Server.MapPath(ConfigurationManager.AppSettings("FromPhone_Renewal_Rejected")))
+            Return 0 'rejected
         Else
             MoveFileToRejectedFolder(Server.MapPath(ConfigurationManager.AppSettings("FromPhone_Renewal") & FileName & ""), Server.MapPath(ConfigurationManager.AppSettings("FromPhone_Renewal_Rejected")))
-            'MoveFileToRejectedFolder(Server.MapPath("\Dev\FromPhone\Renewal\" & FileName & ""), Server.MapPath("\Dev\FromPhone\Renewal\Rejected\"))
-            Return False
+            Return 2 'Unkwonw Error
         End If
 
     End Function
-    <WebMethod()> _
-    Public Function isValidClaim(ByVal FileName As String) As Boolean
+    <WebMethod()>
+    Public Function UploadClaim(ByVal ClaimData As String, ByVal FileName As String) As String
+        If ClaimData.Length = 0 Then
+            Return False
+        End If
+        Dim XML As XmlDocument = getJsonToXML(ClaimData)
+        Dim ClaimDetails As XmlNodeList = XML.DocumentElement.SelectNodes("/Claim/Details")
+        Dim HFCode, AdminCode As String
+        For Each node As XmlNode In ClaimDetails
+            HFCode = node.SelectSingleNode("HFCode").InnerText
+            AdminCode = node.SelectSingleNode("ClaimAdmin").InnerText
+        Next
+        Dim ClaimFolder As String = Server.MapPath(ConfigurationManager.AppSettings("FromPhone_Claim"))
+        Try
+            If Not Directory.Exists(ClaimFolder) Then
+                Directory.CreateDirectory(ClaimFolder)
+            End If
+            XML.Save(ClaimFolder & FileName)
+            Return "True"
+        Catch ex As Exception
+            Return "False"
+        End Try
+        Return "False"
+    End Function
+    <WebMethod()>
+    Public Function UploadFeedback(ByVal FeedbackData As String, ByVal FileName As String) As String
+        If FeedbackData.Length = 0 Then
+            Return False
+        End If
+
+        Dim XML As XmlDocument = getJsonToXML(FeedbackData)
+
+        Dim FeedBackDetails As XmlNodeList = XML.DocumentElement.SelectNodes("/feedback")
+        Dim AdminCode As String
+
+        For Each node As XmlNode In FeedBackDetails
+            AdminCode = node.SelectSingleNode("Officer").InnerText
+        Next
+
+
+        Dim FeedBackFolder As String = Server.MapPath(ConfigurationManager.AppSettings("FromPhone_Feedback"))
+        Try
+            If Not Directory.Exists(FeedBackFolder) Then
+                Directory.CreateDirectory(FeedBackFolder)
+            End If
+            XML.Save(FeedBackFolder & FileName)
+            Return "True"
+        Catch ex As Exception
+            Return "False"
+        End Try
+        Return "False"
+    End Function
+
+    <WebMethod()>
+    Public Function UploadRenewal(ByVal RenewalData As String, ByVal FileName As String) As String
+        If RenewalData.Length = 0 Then
+            Return False
+        End If
+        Dim XML As XmlDocument = getJsonToXML(RenewalData)
+
+        Dim RenewalDetails As XmlNodeList = XML.DocumentElement.SelectNodes("/Policy")
+
+        Dim CHFID, ReceiptNo As String
+
+        For Each node As XmlNode In RenewalDetails
+            CHFID = node.SelectSingleNode("CHFID").InnerText
+            ReceiptNo = node.SelectSingleNode("ReceiptNo").InnerText
+        Next
+
+        Dim RenewalFolder As String = Server.MapPath(ConfigurationManager.AppSettings("FromPhone_Renewal"))
+        Try
+            If Not Directory.Exists(RenewalFolder) Then
+                Directory.CreateDirectory(RenewalFolder)
+            End If
+            XML.Save(RenewalFolder & FileName)
+            Return "True"
+        Catch ex As Exception
+            Return "False"
+        End Try
+        Return "False"
+    End Function
+    <WebMethod()>
+    Public Sub UploadPhoto(ByVal Image As Byte(), ByVal ImageName As String, ByVal CHFID As String, ByVal OfficerCode As String)
+        Dim SubmittedFolder As String = Server.MapPath(ConfigurationManager.AppSettings("SubmittedFolder"))
+        Try
+            If Not Directory.Exists(SubmittedFolder) Then
+                Directory.CreateDirectory(SubmittedFolder)
+            End If
+            If Not Image Is Nothing And Not Image.Length = 0 Then
+                File.WriteAllBytes(SubmittedFolder & Path.DirectorySeparatorChar & ImageName, Image)
+                Dim FileName As String = Path.GetFileName(ImageName)
+                InsertPhotoEntry(FileName, CHFID, OfficerCode)
+            End If
+        Catch ex As Exception
+
+        End Try
+
+    End Sub
+    <WebMethod()>
+    Public Function isValidClaim(ByVal FileName As String) As Integer
+
+        Dim FilePath As String = Server.MapPath(ConfigurationManager.AppSettings("FromPhone_Claim")) '"c:/inetpub/wwwroot/IMIS/FromPhone/Claim/"
+
+        Dim xmlFile As String = FilePath & FileName
+        'If Not File.Exists(xmlFile) Then
+        '    Return
+        'End If
+        Dim XML As New XmlDocument
+        XML.Load(xmlFile)
+
+        For Each node As XmlNode In XML
+            If node.NodeType = XmlNodeType.XmlDeclaration Then
+                XML.RemoveChild(node)
+            End If
+        Next
+
 
         Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
         Dim con As New SqlConnection(ConStr)
         Dim sSQL As String = ""
 
-        Dim FilePath As String = Server.MapPath(ConfigurationManager.AppSettings("FromPhone_Claim")) '"c:/inetpub/wwwroot/IMIS/FromPhone/Claim/"
 
         sSQL = "uspUpdateClaimFromPhone"
 
         Dim cmd As New SqlCommand(sSQL, con)
         cmd.CommandType = CommandType.StoredProcedure
 
-        cmd.Parameters.Add("@FileName", SqlDbType.VarChar, 100).Value = FilePath & FileName
+        cmd.Parameters.Add("@XML", SqlDbType.Xml).Value = XML.InnerXml
         cmd.Parameters.Add("@ByPassSubmit", SqlDbType.Bit).Value = True
         cmd.Parameters.Add("@Result", SqlDbType.Int).Direction = ParameterDirection.ReturnValue
 
         If con.State = ConnectionState.Closed Then con.Open()
 
-        cmd.ExecuteNonQuery()
 
-        If cmd.Parameters("@Result").Value = 0 Then
-            Return True
+        Dim result As Integer = -1
+        Try
+            cmd.ExecuteNonQuery()
+            result = cmd.Parameters("@Result").Value
+        Catch ex As Exception
+            result = -1
+        End Try
+
+        If result = 0 Then
+            Return 1 'Accepted
+        ElseIf result = -1 Then
+            Return 2 'Unknown Error
         Else
             MoveFileToRejectedFolder(Server.MapPath(ConfigurationManager.AppSettings("FromPhone_Claim") & FileName & ""), Server.MapPath(ConfigurationManager.AppSettings("FromPhone_Claim_Rejected")))
-            'MoveFileToRejectedFolder(Server.MapPath("\Dev\FromPhone\Claim\" & FileName & ""), Server.MapPath("\Dev\FromPhone\Claim\Rejected\"))
-            Return False
+            Return 0 'Rejected
         End If
 
     End Function
-    <WebMethod()> _
-    Public Function isValidFeedback(ByVal FileName As String) As Boolean
+    <WebMethod()>
+    Public Function isValidFeedback(ByVal FileName As String) As Integer
         Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
-        Dim FilePath As String = Server.MapPath(ConfigurationManager.AppSettings("FromPhone_Feedback") & FileName & "")
+        Dim FilePath As String = Server.MapPath(ConfigurationManager.AppSettings("FromPhone_Feedback"))
+
+        Dim xmlFile As String = FilePath & FileName
+        'If Not File.Exists(xmlFile) Then
+        '    Return
+        'End If
+        Dim XML As New XmlDocument
+        XML.Load(xmlFile)
+
+        For Each node As XmlNode In XML
+            If node.NodeType = XmlNodeType.XmlDeclaration Then
+                XML.RemoveChild(node)
+            End If
+        Next
+
+
         Dim con As New SqlConnection(ConStr)
         Dim sSQL As String = "uspInsertFeedback"
         Dim cmd As New SqlCommand(sSQL, con)
         cmd.CommandType = CommandType.StoredProcedure
 
-        cmd.Parameters.Add("@FileName", SqlDbType.VarChar, 100).Value = FilePath
+        cmd.Parameters.Add("@XML", SqlDbType.Xml).Value = XML.InnerXml
         cmd.Parameters.Add("@Result", SqlDbType.Int).Direction = ParameterDirection.ReturnValue
+
 
         If con.State = ConnectionState.Closed Then con.Open()
 
-        cmd.ExecuteNonQuery()
+        Dim result As Integer = 2
+        Try
+            cmd.ExecuteNonQuery()
+            result = cmd.Parameters("@Result").Value
+        Catch ex As Exception
+            result = 2
+        End Try
 
-        If cmd.Parameters("@Result").Value = 0 Then
-            Return True
-        Else
+
+        If result = 0 Or result = 4 Then
+            Return 1  'Accepted
+        ElseIf result = 1 Or result = 2 Or result = 3 Then
             MoveFileToRejectedFolder(Server.MapPath(ConfigurationManager.AppSettings("FromPhone_Feedback") & FileName & ""), Server.MapPath(ConfigurationManager.AppSettings("FromPhone_Feedback_Rejected")))
-            'MoveFileToRejectedFolder(Server.MapPath("\Dev\FromPhone\Feedback\" & FileName & ""), Server.MapPath("\Dev\FromPhone\Feedback\Rejected\"))
-            Return False
+            Return 0 ' Rejected
+        Else
+            Return 2 ' Unknown Error
         End If
 
 
     End Function
-    <WebMethod()> _
+    <WebMethod()>
     Public Function isValidPhone(ByVal OfficerCode As String, ByVal PhoneNumber As String) As Boolean
         Try
             Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
@@ -383,19 +547,19 @@ Public Class Service1
             Throw ex
         End Try
     End Function
-    <WebMethod()> _
-    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)> _
+    <WebMethod()>
+    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)>
     Public Function getFeedbacksNew(ByVal OfficerCode As String) As String
         Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
         Dim con As New SqlConnection(ConStr)
         Dim sSQL As String = ""
-        sSQL = "SELECT F.ClaimId,F.OfficerId,O.Code OfficerCode, I.CHFID, I.LastName, I.OtherNames, HF.HFCode, HF.HFName,C.ClaimCode,CONVERT(NVARCHAR(10),C.DateFrom,103)DateFrom, CONVERT(NVARCHAR(10),C.DateTo,103)DateTo,O.Phone, CONVERT(NVARCHAR(10),F.FeedbackPromptDate,103)FeedbackPromptDate" & _
-               " FROM tblFeedbackPrompt F INNER JOIN tblOfficer O ON F.OfficerId = O.OfficerId" & _
-               " INNER JOIN tblClaim C ON F.ClaimId = C.ClaimId" & _
-               " INNER JOIN tblInsuree I ON C.InsureeId = I.InsureeId" & _
-               " INNER JOIN tblHF HF ON C.HFID = HF.HFID" & _
-               " WHERE F.ValidityTo Is NULL AND O.ValidityTo IS NULL" & _
-               " AND O.Code = @OfficerCode" & _
+        sSQL = "SELECT F.ClaimId,F.OfficerId,O.Code OfficerCode, I.CHFID, I.LastName, I.OtherNames, HF.HFCode, HF.HFName,C.ClaimCode,CONVERT(NVARCHAR(10),C.DateFrom,103)DateFrom, CONVERT(NVARCHAR(10),C.DateTo,103)DateTo,O.Phone, CONVERT(NVARCHAR(10),F.FeedbackPromptDate,103)FeedbackPromptDate" &
+               " FROM tblFeedbackPrompt F INNER JOIN tblOfficer O ON F.OfficerId = O.OfficerId" &
+               " INNER JOIN tblClaim C ON F.ClaimId = C.ClaimId" &
+               " INNER JOIN tblInsuree I ON C.InsureeId = I.InsureeId" &
+               " INNER JOIN tblHF HF ON C.HFID = HF.HFID" &
+               " WHERE F.ValidityTo Is NULL AND O.ValidityTo IS NULL" &
+               " AND O.Code = @OfficerCode" &
                " AND C.FeedbackStatus = 4" 'Commented by Rogers
 
         Dim cmd As New SqlCommand(sSQL, con)
@@ -439,20 +603,20 @@ Public Class Service1
         Return jString
 
     End Function
-    <WebMethod()> _
-    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)> _
+    <WebMethod()>
+    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)>
     Public Function getFeedbacks(ByVal OfficerCode As String, ByVal PhoneNumber As String) As String
         Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
         Dim con As New SqlConnection(ConStr)
         Dim sSQL As String = ""
-        sSQL = "SELECT F.ClaimId,F.OfficerId,O.Code OfficerCode, I.CHFID, I.LastName, I.OtherNames, HF.HFCode, HF.HFName,C.ClaimCode,CONVERT(NVARCHAR(10),C.DateFrom,103)DateFrom, CONVERT(NVARCHAR(10),C.DateTo,103)DateTo,O.Phone, CONVERT(NVARCHAR(10),F.FeedbackPromptDate,103)FeedbackPromptDate" & _
-               " FROM tblFeedbackPrompt F INNER JOIN tblOfficer O ON F.OfficerId = O.OfficerId" & _
-               " INNER JOIN tblClaim C ON F.ClaimId = C.ClaimId" & _
-               " INNER JOIN tblInsuree I ON C.InsureeId = I.InsureeId" & _
-               " INNER JOIN tblHF HF ON C.HFID = HF.HFID" & _
-               " WHERE F.ValidityTo Is NULL" & _
-               " AND O.Code = @OfficerCode" & _
-               " AND O.Phone = @Phone" & _
+        sSQL = "SELECT F.ClaimId,F.OfficerId,O.Code OfficerCode, I.CHFID, I.LastName, I.OtherNames, HF.HFCode, HF.HFName,C.ClaimCode,CONVERT(NVARCHAR(10),C.DateFrom,103)DateFrom, CONVERT(NVARCHAR(10),C.DateTo,103)DateTo,O.Phone, CONVERT(NVARCHAR(10),F.FeedbackPromptDate,103)FeedbackPromptDate" &
+               " FROM tblFeedbackPrompt F INNER JOIN tblOfficer O ON F.OfficerId = O.OfficerId" &
+               " INNER JOIN tblClaim C ON F.ClaimId = C.ClaimId" &
+               " INNER JOIN tblInsuree I ON C.InsureeId = I.InsureeId" &
+               " INNER JOIN tblHF HF ON C.HFID = HF.HFID" &
+               " WHERE F.ValidityTo Is NULL" &
+               " AND O.Code = @OfficerCode" &
+               " AND O.Phone = @Phone" &
                " AND C.FeedbackStatus = 4"
 
         Dim cmd As New SqlCommand(sSQL, con)
@@ -496,31 +660,14 @@ Public Class Service1
         Return jString
 
     End Function
-    <WebMethod()> _
-    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)> _
+    <WebMethod()>
+    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)>
     Public Function getRenewalsNew(ByVal OfficerCode As String) As String
         Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
         Dim con As New SqlConnection(ConStr)
-        Dim sSQL As String = ""
-        sSQL += " ;WITH FollowingPolicies AS ("
-        sSQL += " SELECT P.PolicyId, P.FamilyId, ISNULL(Prod.ConversionProdId, Prod.ProdId)ProdID, P.StartDate"
-        sSQL += " FROM tblPolicy P"
-        sSQL += " INNER JOIN tblProduct Prod ON P.ProdId = ISNULL(Prod.ConversionProdId, Prod.ProdId)"
-        sSQL += " WHERE P.ValidityTo IS NULL"
-        sSQL += " AND Prod.ValidityTo IS NULL )"
-        sSQL += " SELECT R.RenewalId,R.PolicyId, O.OfficerId, O.Code OfficerCode, I.CHFID, I.LastName, I.OtherNames, Prod.ProductCode, Prod.ProductName,F.LocationId, V.VillageName, CONVERT(NVARCHAR(10),R.RenewalpromptDate,103)RenewalpromptDate, O.Phone, CONVERT(NVARCHAR(10),Po.EnrollDate,103) EnrollDate,Po.PolicyStage, F.FamilyID, Prod.ProdID FROM tblPolicyRenewals R "
-        sSQL += " INNER JOIN tblOfficer O ON R.NewOfficerId = O.OfficerId"
-        sSQL += " INNER JOIN tblInsuree I ON R.InsureeId = I.InsureeId"
-        sSQL += " LEFT OUTER JOIN tblProduct Prod ON R.NewProdId = Prod.ProdId"
-        sSQL += " INNER JOIN tblFamilies F ON I.FamilyId = F.Familyid"
-        sSQL += " INNER JOIN tblVillages V ON F.LocationId = V.VillageId"
-        sSQL += " INNER JOIN tblPolicy Po ON Po.PolicyID = R.PolicyID"
-        sSQL += " LEFT OUTER JOIN FollowingPolicies FP ON FP.FamilyID = F.FamilyId AND FP.ProdId = Po.ProdID AND FP.PolicyId <> R.PolicyID"
-        sSQL += " WHERE R.ValidityTo Is NULL"
-        sSQL += " AND ISNULL(R.ResponseStatus, 0) = 0"
-        sSQL += " AND O.Code = @OfficerCode"
-        sSQL += " AND FP.PolicyId IS NULL"
+        Dim sSQL As String = "uspGetPolicyRenewals"
         Dim cmd As New SqlCommand(sSQL, con)
+        cmd.CommandType = CommandType.StoredProcedure
 
         cmd.Parameters.Add("@OfficerCode", SqlDbType.NVarChar, 8).Value = OfficerCode
         'cmd.Parameters.Add("@Phone", SqlDbType.NVarChar, 16).Value = PhoneNumber
@@ -567,21 +714,21 @@ Public Class Service1
 
         Return JString
     End Function
-    <WebMethod()> _
-   <ScriptMethod(ResponseFormat:=ResponseFormat.Json)> _
+    <WebMethod()>
+    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)>
     Public Function getRenewals(ByVal OfficerCode As String, ByVal PhoneNumber As String) As String
         Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
         Dim con As New SqlConnection(ConStr)
         Dim sSQL As String = ""
-        sSQL = "SELECT R.RenewalId,R.PolicyId, O.OfficerId, O.Code OfficerCode, I.CHFID, I.LastName, I.OtherNames, Prod.ProductCode, Prod.ProductName, V.VillageName, CONVERT(NVARCHAR(10),R.RenewalpromptDate,103)RenewalpromptDate, O.Phone" & _
-               " FROM tblPolicyRenewals R INNER JOIN tblOfficer O ON R.NewOfficerId = O.OfficerId" & _
-               " INNER JOIN tblInsuree I ON R.InsureeId = I.InsureeId" & _
-               " LEFT OUTER JOIN tblProduct Prod ON R.NewProdId = Prod.ProdId" & _
-               " INNER JOIN tblFamilies F ON I.FamilyId = F.Familyid" & _
-               " INNER JOIN tblVillages V ON F.LocationId = V.VillageId" & _
-               " WHERE R.ValidityTo Is NULL" & _
-               " AND R.ResponseStatus = 0" & _
-               " AND O.Code = @OfficerCode" & _
+        sSQL = "SELECT R.RenewalId,R.PolicyId, O.OfficerId, O.Code OfficerCode, I.CHFID, I.LastName, I.OtherNames, Prod.ProductCode, Prod.ProductName, V.VillageName, CONVERT(NVARCHAR(10),R.RenewalpromptDate,103)RenewalpromptDate, O.Phone" &
+               " FROM tblPolicyRenewals R INNER JOIN tblOfficer O ON R.NewOfficerId = O.OfficerId" &
+               " INNER JOIN tblInsuree I ON R.InsureeId = I.InsureeId" &
+               " LEFT OUTER JOIN tblProduct Prod ON R.NewProdId = Prod.ProdId" &
+               " INNER JOIN tblFamilies F ON I.FamilyId = F.Familyid" &
+               " INNER JOIN tblVillages V ON F.LocationId = V.VillageId" &
+               " WHERE R.ValidityTo Is NULL" &
+               " AND R.ResponseStatus = 0" &
+               " AND O.Code = @OfficerCode" &
                " AND O.Phone = @Phone"
 
         Dim cmd As New SqlCommand(sSQL, con)
@@ -627,7 +774,7 @@ Public Class Service1
 
         Return JString
     End Function
-    <WebMethod()> _
+    <WebMethod()>
     Public Sub DiscontinuePolicy(ByVal RenewalId As Integer)
         Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
         Dim con As New SqlConnection(ConStr)
@@ -645,8 +792,8 @@ Public Class Service1
         On Error Resume Next
         File.Move(OrginalFile, DestinationFolder & Mid(OrginalFile, OrginalFile.LastIndexOf("\") + 2, OrginalFile.Length))
     End Sub
-    <WebMethod()> _
-    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)> _
+    <WebMethod()>
+    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)>
     Public Function GetClaimStats(HFCode As String, ClaimAdmin As String, FromDate As Date, ToDate As String) As String
         Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
         Dim con As New SqlConnection(ConStr)
@@ -674,11 +821,11 @@ Public Class Service1
         Dim json As String = String.Empty
         Dim js As New JavaScriptSerializer
         js.MaxJsonLength = Integer.MaxValue
-        json = js.Serialize(From dr As DataRow In dt.Rows Select dt.Columns.Cast(Of DataColumn)().ToDictionary(Function(Col) Col.ColumnName, Function(Col) dr(Col)))
+        json = js.Serialize(From dr As DataRow In dt.Rows Select dt.Columns.Cast(Of DataColumn)().ToDictionary(Function(Col) Col.ColumnName, Function(Col) If(dr(Col) Is DBNull.Value, String.Empty, dr(Col))))
         Return json
     End Function
-    <WebMethod()> _
-    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)> _
+    <WebMethod()>
+    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)>
     Public Function GetFeedbackStats(OfficerCode As String, FromDate As Date, ToDate As Date) As String
         Dim sSQL As String = String.Empty
         sSQL = "SELECT ISNULL(SUM(1),0) FeedbackSent, ISNULL(SUM(CASE DocStatus WHEN N'A' THEN 1 ELSE 0 END),0) FeedbackAccepted"
@@ -709,8 +856,8 @@ Public Class Service1
         Return jString
 
     End Function
-    <WebMethod()> _
-    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)> _
+    <WebMethod()>
+    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)>
     Public Function GetRenewalStats(OfficerCode As String, FromDate As Date, ToDate As Date) As String
         Dim sSQL As String = String.Empty
         sSQL = "SELECT COUNT(1) RenewalSent, ISNULL(SUM(CASE DocStatus WHEN N'A' THEN 1 ELSE 0 END),0) RenewalAccepted"
@@ -742,7 +889,7 @@ Public Class Service1
 
 
     End Function
-    <WebMethod()> _
+    <WebMethod()>
     Public Sub InsertPhotoEntry(FileName As String, CHFID As String, OfficerCode As String)
         Dim sSQL As String = String.Empty
         sSQL = "IF NOT EXISTS(SELECT 1 FROM tblFromPhone WHERE DocName = @FileName)"
@@ -764,8 +911,8 @@ Public Class Service1
         cmd.ExecuteReader()
 
     End Sub
-    <WebMethod()> _
-    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)> _
+    <WebMethod()>
+    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)>
     Public Function GetEnrolmentStats(OfficerCode As String, FromDate As String, ToDate As String) As String
         Dim sSQL As String = String.Empty
         sSQL = "SELECT ISNULL(SUM(1),0) TotalSubmitted, ISNULL(SUM(CASE WHEN Pic.PhotoFileName IS NULL THEN 0 ELSE 1 END),0) TotalAssigned"
@@ -798,7 +945,7 @@ Public Class Service1
 
 
     End Function
-    <WebMethod()> _
+    <WebMethod()>
     Public Function CheckServerPath(ByVal PathToGo As String) As String
         Dim WithClaim As String = Server.MapPath(PathToGo)
 
@@ -807,14 +954,14 @@ Public Class Service1
 
     End Function
 
-    <WebMethod()> _
+    <WebMethod()>
     Public Function checkAppSettings(ByVal SettingName As String) As String
         Dim SettingValue As String = ConfigurationManager.AppSettings(SettingName)
         Return SettingValue
     End Function
 
-    <WebMethod> _
-    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)> _
+    <WebMethod>
+    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)>
     Public Function GetPayers(OfficerCode As String) As String
         Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
         Dim con As New SqlConnection(ConStr)
@@ -871,7 +1018,7 @@ Public Class Service1
     End Function
 
 
-    <WebMethod> _
+    <WebMethod>
     Public Function CreatePhoneExtracts(ByVal DistrictId As Integer, ByVal UserId As Integer, ByVal WithInsuree As Boolean) As Boolean
         Dim sp As New Stopwatch
         sp.Start()
@@ -907,7 +1054,7 @@ Public Class Service1
         Dim TemplatePath As String = HttpContext.Current.Server.MapPath("\") & "Templates\PhoneExtract.html"
         Dim EmailSubject As String = "Phone Extract is ready to download"
         ' Dim EmailMessage = "Phone extract is ready to download"
-        
+
 
         sp.Stop()
 
@@ -925,7 +1072,7 @@ Public Class Service1
     End Function
 
     'added by amani 28/09
-    <WebMethod> _
+    <WebMethod>
     Public Function CreateOfflineExtract(ByVal RegionId As Integer, ByVal DistrictId As Integer, ByVal UserId As Integer, ByVal WithInsuree As Boolean, ByVal ChkFullExtract As Boolean) As Boolean
 
         Dim Extracts As New OffLineExtracts
@@ -967,7 +1114,7 @@ Public Class Service1
             'for only full extract then
             eExtractInfo.ExtractType = 2
 
-            
+
             Dim FullExtractFileName As String = Extracts.CreateOffLineExtracts(eExtractInfo, FolderPath)
             If eExtractInfo.ExtractStatus = 0 Then
                 If FileName.Trim.Length > 0 Then
@@ -997,7 +1144,7 @@ Public Class Service1
         End If
 
         Dim Email As New EmailHandler
-      
+
         My.Computer.FileSystem.WriteAllText(LogFile, vbNewLine & vbNewLine & "EmailID: " & Dict("UserEmail") & "" & vbNewLine, True)
 
         If Dict("UserEmail").Trim.Length = 0 Then Exit Sub
@@ -1097,6 +1244,47 @@ Public Class Service1
         Return dt.Rows(0)("PolicyValue")
     End Function
 
+    <WebMethod>
+    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)>
+    Public Function GetSnapshotIndicators(ByVal SnapshotDate As String, ByVal OfficerId As Integer) As String
+        Dim data As New SQLHelper
+        Dim sSQL As String = "SELECT Active, Expired, Idle, Suspended FROM dbo.udfGetSnapshotIndicators(@SnapshotDate,@OfficerId)"
+        data.setSQLCommand(sSQL, CommandType.Text)
+        data.params("@SnapshotDate", SqlDbType.NVarChar, 50, SnapshotDate)
+        data.params("@OfficerId", OfficerId)
+        Dim dtSnapshotIndicators As DataTable = data.Filldata
+        Dim SnapshotIndicators As String = GetJsonFromDt(dtSnapshotIndicators)
+
+        Dim Json As String = ""
+        Json += SnapshotIndicators
+
+        Return Json
+    End Function
+
+    <WebMethod>
+    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)>
+    Public Function GetCumulativeIndicators(ByVal DateFrom As String, ByVal DateTo As String, ByVal OfficerId As Integer) As String
+        Dim data As New SQLHelper
+        Dim sSQL As String = "SELECT "
+        sSQL += " ISNULL(dbo.udfNewPoliciesPhoneStatistics(@DateFrom,@DateTo,@OfficerId),0) NewPolicies,"
+        sSQL += " ISNULL(dbo.udfRenewedPoliciesPhoneStatistics(@DateFrom,@DateTo,@OfficerId),0) RenewedPolicies, "
+        sSQL += " ISNULL(dbo.udfExpiredPoliciesPhoneStatistics(@DateFrom,@DateTo,@OfficerId),0) ExpiredPolicies,  "
+        sSQL += " ISNULL(dbo.udfSuspendedPoliciesPhoneStatistics(@DateFrom,@DateTo,@OfficerId),0) SuspendedPolicies,"
+        sSQL += " ISNULL(dbo.udfCollectedContribution(@DateFrom,@DateTo,@OfficerId),0) CollectedContribution "
+        data.setSQLCommand(sSQL, CommandType.Text)
+        data.params("@DateFrom", SqlDbType.NVarChar, 50, DateFrom)
+        data.params("@DateTo", SqlDbType.NVarChar, 50, DateTo)
+        data.params("@OfficerId", OfficerId)
+        Dim dtCumulativeIndicators As DataTable = data.Filldata
+        Dim CumulativeIndicators As String = GetJsonFromDt(dtCumulativeIndicators)
+
+        Dim Json As String = ""
+        Json += CumulativeIndicators
+
+
+        Return Json
+    End Function
+
 #Region "Android Front End"
     <WebMethod> _
     Public Function isValidLogin(LoginName As String, Password As String) As Integer
@@ -1163,164 +1351,13 @@ Public Class Service1
         Return dt
     End Function
 
-    <WebMethod>
-    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)>
-    Public Function ImportExcelFile(ExcelFile As String) As String
-
-
-        'Dim sSQL As String = ""
-        'Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
-        'Dim con As New SqlConnection(ConStr)
-        'Dim cmd As New SqlCommand()
-
-        'Try
-
-        '    Dim dtFamily As DataTable = getJsonToDt(Family)
-        '    Dim dtInsuree As DataTable = getJsonToDt(Insuree)
-        '    Dim dtPolicy As DataTable = getJsonToDt(Policy)
-        '    Dim dtPremium As DataTable = getJsonToDt(Premium)
-        '    'Dim dtPictures As DataTable = getJsonToDt(Pictures)
-        '    ' Dim dtInsureePolicy As DataTable = getJsonToDt(InsureePolicy)
-
-        '    Dim Writer As New StringWriter
-
-        '    If Not dtFamily Is Nothing Then dtFamily.TableName = "Family"
-        '    If Not dtInsuree Is Nothing Then dtInsuree.TableName = "Insuree"
-        '    If Not dtPolicy Is Nothing Then dtPolicy.TableName = "Policy"
-        '    If Not dtPremium Is Nothing Then dtPremium.TableName = "Premium"
-        '    ' If Not dtInsureePolicy Is Nothing Then dtInsureePolicy.TableName = "InsureePolicy"
-
-        '    Dim ds As New DataSet("Enrollment")
-
-
-        '    If Not dtFamily Is Nothing Then ds.Tables.Add(dtFamily)
-        '    If Not dtInsuree Is Nothing Then ds.Tables.Add(dtInsuree)
-        '    If Not dtPolicy Is Nothing Then ds.Tables.Add(dtPolicy)
-        '    If Not dtPremium Is Nothing Then ds.Tables.Add(dtPremium)
-        '    ' If Not dtInsureePolicy Is Nothing Then ds.Tables.Add(dtInsureePolicy)
-        '    ds.WriteXml(Writer)
-
-        '    Dim xmlEnrollment As String = Writer.ToString
-
-        '    'Save XML for future reference
-        '    Dim EnrollmentDir As String = ConfigurationManager.AppSettings("Enrollment_Phone")
-        '    Dim JsonDebugFolder As String = ConfigurationManager.AppSettings("JsonDebugFolder")
-        '    Dim UpdatedFolder As String = ConfigurationManager.AppSettings("UpdatedFolder")
-        '    Dim hof As String = ""
-        '    If dtInsuree IsNot Nothing Then
-        '        If dtInsuree.Select("isHead = '1' OR isHead = 'true'").Count > 0 Then
-        '            hof = dtInsuree.Select("isHead = '1' OR isHead = 'true'")(0)("CHFID").ToString
-        '        Else
-        '            hof = "Unknown"
-        '        End If
-        '    End If
-
-        '    Dim JsonContents As String = String.Empty
-        '    JsonContents += "Family: "
-        '    JsonContents += vbCrLf
-        '    JsonContents += Family
-        '    JsonContents += vbCrLf
-        '    JsonContents += vbCrLf
-
-        '    JsonContents += "Insuree: "
-        '    JsonContents += vbCrLf
-        '    JsonContents += Insuree
-        '    JsonContents += vbCrLf
-        '    JsonContents += vbCrLf
-
-        '    JsonContents += "Policy: "
-        '    JsonContents += vbCrLf
-        '    JsonContents += Policy
-        '    JsonContents += vbCrLf
-        '    JsonContents += vbCrLf
-
-        '    JsonContents += "Premium: "
-        '    JsonContents += vbCrLf
-        '    JsonContents += Premium
-        '    JsonContents += vbCrLf
-        '    JsonContents += vbCrLf
-
-        '    JsonContents += "OfficerId: "
-        '    JsonContents += vbCrLf
-        '    JsonContents += OfficerId.ToString()
-        '    JsonContents += vbCrLf
-        '    JsonContents += vbCrLf
-
-
-        '    JsonContents += "UserId: "
-        '    JsonContents += vbCrLf
-        '    JsonContents += UserId.ToString()
-
-
-        '    Dim FileName As String = String.Format("{0}_{1}_{2}.xml", hof, OfficerId.ToString, Format(Now, "dd-MM-yyyy HH-mm-ss"))
-        '    Dim JsonFileName As String = String.Format("{0}_{1}_{2}.txt", hof, OfficerId.ToString, Format(Now, "dd-MM-yyyy HH-mm-ss"))
-        '    Try
-        '        My.Computer.FileSystem.WriteAllText(Server.MapPath(EnrollmentDir) & FileName, xmlEnrollment, False)
-        '        If System.IO.Directory.Exists(Server.MapPath(JsonDebugFolder)) Then
-        '            My.Computer.FileSystem.WriteAllText(Server.MapPath(JsonDebugFolder) & JsonFileName, JsonContents, False)
-        '        Else
-        '            System.IO.Directory.CreateDirectory(Server.MapPath(JsonDebugFolder))
-        '            My.Computer.FileSystem.WriteAllText(Server.MapPath(JsonDebugFolder) & JsonFileName, JsonContents, False)
-        '        End If
-
-        '        'For i As Int16 = 0 To dtPictures.Rows.Count
-        '        '    Dim temp As Byte()
-        '        '    temp = System.Text.Encoding.Unicode.GetBytes(dtPictures.Rows(i)("values").ToString())
-
-        '        'Next
-
-        '        If Not Directory.Exists(Server.MapPath(UpdatedFolder)) Then
-        '            Directory.CreateDirectory(Server.MapPath(UpdatedFolder))
-        '        End If
-
-        '        'Dim updatedFolder As String = 
-
-        '        For Each picture In Pictures
-        '            If Not picture Is Nothing Then
-        '                If picture.ImageContent.Length = 0 Then Continue For
-        '                File.WriteAllBytes(Server.MapPath(UpdatedFolder) & Path.DirectorySeparatorChar & picture.ImageName, picture.ImageContent)
-        '            End If
-        '        Next
-
-
-        '    Catch ex As Exception
-
-        '    End Try
-
-        '    sSQL = "uspUploadEnrolmentFromPhone"
-        '    cmd = New SqlCommand(sSQL, con) With {
-        '        .CommandType = CommandType.StoredProcedure
-        '    }
-
-        '    cmd.Parameters.Add("@xml", SqlDbType.Xml).Value = xmlEnrollment
-        '    cmd.Parameters.Add("@OfficerId", SqlDbType.Int).Value = OfficerId
-        '    cmd.Parameters.Add("@AuditUserId", SqlDbType.Int).Value = UserId
-        '    cmd.Parameters.Add("@ErrorMessage", SqlDbType.NVarChar, 200).Value = ""
-        '    cmd.Parameters("@ErrorMessage").Direction = ParameterDirection.Output
-        '    cmd.Parameters.Add("@RV", SqlDbType.Int).Value = -99
-        '    cmd.Parameters("@RV").Direction = ParameterDirection.ReturnValue
-
-        '    If con.State = ConnectionState.Closed Then con.Open()
-
-        '    cmd.ExecuteScalar()
-
-        '    Dim ErrorMessage As String = cmd.Parameters("@ErrorMessage").Value.ToString
-        '    Dim RV As Integer = cmd.Parameters("@RV").Value
-        '    Return RV
-
-        'Catch ex As Exception
-        '    Throw New Exception(ex.Message)
-        'Finally
-        '    cmd = Nothing
-        '    con.Close()
-        '    con = Nothing
-        'End Try
-        Return "{error: false}"
+    Private Function getJsonToXML(ByRef Json) As XmlDocument
+        Dim xmlDoc As XmlDocument = JsonConvert.DeserializeXmlNode(Json)
+        Return xmlDoc
     End Function
 
-
     <WebMethod>
-    Public Function EnrollFamily(Family As String, Insuree As String, Policy As String, Premium As String, OfficerId As Integer, UserId As Integer, Pictures() As InsureeImages) As Integer
+    Public Function EnrollFamily(Family As String, Insuree As String, Policy As String, Premium As String, InsureePolicy As String, OfficerId As Integer, UserId As Integer, Pictures() As InsureeImages) As Integer
 
 
         Dim sSQL As String = ""
@@ -1334,33 +1371,157 @@ Public Class Service1
             Dim dtInsuree As DataTable = getJsonToDt(Insuree)
             Dim dtPolicy As DataTable = getJsonToDt(Policy)
             Dim dtPremium As DataTable = getJsonToDt(Premium)
+            Dim dtInsureePolicy As DataTable = getJsonToDt(InsureePolicy)
+            Dim dtFileInfo As New DataTable()
+            dtFileInfo.Columns.Add("UserId")
+            dtFileInfo.Columns.Add("OfficerId")
+            Dim dr As DataRow = dtFileInfo.NewRow
+            dr("UserId") = Integer.Parse(UserId)
+            dr("OfficerId") = Integer.Parse(OfficerId)
+            dtFileInfo.Rows.Add(dr)
             'Dim dtPictures As DataTable = getJsonToDt(Pictures)
             ' Dim dtInsureePolicy As DataTable = getJsonToDt(InsureePolicy)
 
             Dim Writer As New StringWriter
 
+
             If Not dtFamily Is Nothing Then dtFamily.TableName = "Family"
             If Not dtInsuree Is Nothing Then dtInsuree.TableName = "Insuree"
             If Not dtPolicy Is Nothing Then dtPolicy.TableName = "Policy"
             If Not dtPremium Is Nothing Then dtPremium.TableName = "Premium"
+            If Not dtInsureePolicy Is Nothing Then dtInsureePolicy.TableName = "InsureePolicy"
+            If Not dtFileInfo Is Nothing Then dtFileInfo.TableName = "FileInfo"
             ' If Not dtInsureePolicy Is Nothing Then dtInsureePolicy.TableName = "InsureePolicy"
 
-            Dim ds As New DataSet("Enrollment")
+            Dim ds As New DataSet("Enrolment")
+
+            Dim XMLString As String = ""
+
+            XMLString += "<Enrolment>"
+            XMLString += "<FileInfo>"
+            XMLString += "<UserId>" + dtFileInfo.Rows(0)("UserId").ToString + "</UserId>"
+            XMLString += "<OfficerId>" + dtFileInfo.Rows(0)("OfficerId").ToString + "</OfficerId>"
+            XMLString += "</FileInfo>"
+            XMLString += "<Families>" 'Families Starting
+            If Not dtFamily Is Nothing Then
+                For i = 0 To dtFamily.Rows.Count - 1
+                    XMLString += "<Family>"
+                    XMLString += "<FamilyId>" + dtFamily.Rows(i)("FamilyId").ToString + "</FamilyId>"
+                    XMLString += "<InsureeId>" + dtFamily.Rows(i)("InsureeId").ToString + "</InsureeId>"
+                    XMLString += "<LocationId>" + dtFamily.Rows(i)("LocationId").ToString + "</LocationId>"
+                    XMLString += "<HOFCHFID>" + dtFamily.Rows(i)("HOFCHFID").ToString + "</HOFCHFID>"
+                    XMLString += "<Poverty>" + dtFamily.Rows(i)("Poverty").ToString + "</Poverty>"
+                    XMLString += "<FamilyType>" + dtFamily.Rows(i)("FamilyType").ToString + "</FamilyType>"
+                    XMLString += "<FamilyAddress>" + dtFamily.Rows(i)("FamilyAddress").ToString + "</FamilyAddress>"
+                    XMLString += "<Ethnicity>" + dtFamily.Rows(i)("Ethnicity").ToString + "</Ethnicity>"
+                    XMLString += "<ConfirmationNo>" + dtFamily.Rows(i)("ConfirmationNo").ToString + "</ConfirmationNo>"
+                    XMLString += "<ConfirmationType>" + dtFamily.Rows(i)("ConfirmationType").ToString + "</ConfirmationType>"
+                    XMLString += "<isOffline>" + dtFamily.Rows(i)("isOffline").ToString + "</isOffline>"
+                    XMLString += "</Family>"
+                Next
+            End If
+            XMLString += "</Families>" 'Families Ending
+            XMLString += "<Insurees>" 'Insuree Starting
+            If Not dtInsuree Is Nothing Then
+                For i = 0 To dtInsuree.Rows.Count - 1
+                    XMLString += "<Insuree>"
+                    XMLString += "<InsureeId>" + dtInsuree.Rows(i)("InsureeId").ToString + "</InsureeId>"
+                    XMLString += "<FamilyId>" + dtInsuree.Rows(i)("FamilyId").ToString + "</FamilyId>"
+                    XMLString += "<CHFID>" + dtInsuree.Rows(i)("CHFID").ToString + "</CHFID>"
+                    XMLString += "<LastName>" + dtInsuree.Rows(i)("LastName").ToString + "</LastName>"
+                    XMLString += "<OtherNames>" + dtInsuree.Rows(i)("OtherNames").ToString + "</OtherNames>"
+                    XMLString += "<DOB>" + dtInsuree.Rows(i)("DOB").ToString + "</DOB>"
+                    XMLString += "<Gender>" + dtInsuree.Rows(i)("Gender").ToString + "</Gender>"
+                    XMLString += "<Marital>" + dtInsuree.Rows(i)("Marital").ToString + "</Marital>"
+                    XMLString += "<isHead>" + dtInsuree.Rows(i)("isHead").ToString + "</isHead>"
+                    XMLString += "<IdentificationNumber>" + dtInsuree.Rows(i)("IdentificationNumber").ToString + "</IdentificationNumber>"
+                    XMLString += "<Phone>" + dtInsuree.Rows(i)("Phone").ToString + "</Phone>"
+                    XMLString += "<PhotoPath>" + dtInsuree.Rows(i)("PhotoPath").ToString + "</PhotoPath>"
+                    XMLString += "<CardIssued>" + dtInsuree.Rows(i)("CardIssued").ToString + "</CardIssued>"
+                    XMLString += "<Relationship>" + dtInsuree.Rows(i)("Relationship").ToString + "</Relationship>"
+                    XMLString += "<Profession>" + dtInsuree.Rows(i)("Profession").ToString + "</Profession>"
+                    XMLString += "<Education>" + dtInsuree.Rows(i)("Education").ToString + "</Education>"
+                    XMLString += "<Email>" + dtInsuree.Rows(i)("Email").ToString + "</Email>"
+                    XMLString += "<TypeOfId>" + dtInsuree.Rows(i)("TypeOfId").ToString + "</TypeOfId>"
+                    XMLString += "<HFID>" + dtInsuree.Rows(i)("HFID").ToString + "</HFID>"
+                    XMLString += "<CurrentAddress>" + dtInsuree.Rows(i)("CurrentAddress").ToString + "</CurrentAddress>"
+                    XMLString += "<GeoLocation>" + dtInsuree.Rows(i)("GeoLocation").ToString + "</GeoLocation>"
+                    XMLString += "<CurVillage>" + dtInsuree.Rows(i)("CurVillage").ToString + "</CurVillage>"
+                    XMLString += "<isOffline>" + dtInsuree.Rows(i)("isOffline").ToString + "</isOffline>"
+                    XMLString += "</Insuree>"
+                Next
+            End If
+            XMLString += "</Insurees>" 'Insuree Ending
+            XMLString += "<Policies>" 'Policy Starting
+            If Not dtPolicy Is Nothing Then
+                For i = 0 To dtPolicy.Rows.Count - 1
+                    XMLString += "<Policy>"
+                    XMLString += "<PolicyId>" + dtPolicy.Rows(i)("PolicyId").ToString + "</PolicyId>"
+                    XMLString += "<FamilyId>" + dtPolicy.Rows(i)("FamilyId").ToString + "</FamilyId>"
+                    XMLString += "<EnrollDate>" + dtPolicy.Rows(i)("EnrollDate").ToString + "</EnrollDate>"
+                    XMLString += "<StartDate>" + dtPolicy.Rows(i)("StartDate").ToString + "</StartDate>"
+                    XMLString += "<EffectiveDate>" + dtPolicy.Rows(i)("EffectiveDate").ToString + "</EffectiveDate>"
+                    XMLString += "<ExpiryDate>" + dtPolicy.Rows(i)("ExpiryDate").ToString + "</ExpiryDate>"
+                    XMLString += "<PolicyStatus>" + dtPolicy.Rows(i)("PolicyStatus").ToString + "</PolicyStatus>"
+                    XMLString += "<PolicyValue>" + dtPolicy.Rows(i)("PolicyValue").ToString + "</PolicyValue>"
+                    XMLString += "<ProdId>" + dtPolicy.Rows(i)("ProdId").ToString + "</ProdId>"
+                    XMLString += "<OfficerId>" + dtPolicy.Rows(i)("OfficerId").ToString + "</OfficerId>"
+                    XMLString += "<PolicyStage>" + dtPolicy.Rows(i)("PolicyStage").ToString + "</PolicyStage>"
+                    XMLString += "<isOffline>" + dtPolicy.Rows(i)("isOffline").ToString + "</isOffline>"
+                    XMLString += "</Policy>"
+                Next
+            End If
+            XMLString += "</Policies>" 'Policy Ending
+            XMLString += "<Premiums>" 'Premiums Starting
+            If Not dtPremium Is Nothing Then
+                For i = 0 To dtPremium.Rows.Count - 1
+                    XMLString += "<Premium>"
+                    XMLString += "<PremiumId>" + dtPremium.Rows(i)("PremiumId").ToString + "</PremiumId>"
+                    XMLString += "<PolicyId>" + dtPremium.Rows(i)("PolicyId").ToString + "</PolicyId>"
+                    XMLString += "<PayerId>" + dtPremium.Rows(i)("PayerId").ToString + "</PayerId>"
+                    XMLString += "<Amount>" + dtPremium.Rows(i)("Amount").ToString + "</Amount>"
+                    XMLString += "<Receipt>" + dtPremium.Rows(i)("Receipt").ToString + "</Receipt>"
+                    XMLString += "<PayDate>" + dtPremium.Rows(i)("PayDate").ToString + "</PayDate>"
+                    XMLString += "<PayType>" + dtPremium.Rows(i)("PayType").ToString + "</PayType>"
+                    XMLString += "<isPhotoFee>" + dtPremium.Rows(i)("isPhotoFee").ToString + "</isPhotoFee>"
+                    XMLString += "<isOffline>" + dtPremium.Rows(i)("isOffline").ToString + "</isOffline>"
+                    XMLString += "</Premium>"
+                Next
+            End If
+            XMLString += "</Premiums>" 'Premiums Ending
+            XMLString += "<InsureePolicies>" 'InsureePolicies Starting
+            If Not dtInsureePolicy Is Nothing Then
+                For i = 0 To dtInsureePolicy.Rows.Count - 1
+                    XMLString += "<InsureePolicy>"
+                    XMLString += "<InsureeId>" + dtInsureePolicy.Rows(i)("InsureeId").ToString + "</InsureeId>"
+                    XMLString += "<PolicyId>" + dtInsureePolicy.Rows(i)("PolicyId").ToString + "</PolicyId>"
+                    XMLString += "<EffectiveDate>" + dtInsureePolicy.Rows(i)("EffectiveDate").ToString + "</EffectiveDate>"
+                    XMLString += "</InsureePolicy>"
+                Next
+            End If
+            XMLString += "</InsureePolicies>" 'InsureePolicies Ending
+
+            XMLString += "</Enrolment>" 'Erollment Ending
 
 
-            If Not dtFamily Is Nothing Then ds.Tables.Add(dtFamily)
-            If Not dtInsuree Is Nothing Then ds.Tables.Add(dtInsuree)
-            If Not dtPolicy Is Nothing Then ds.Tables.Add(dtPolicy)
-            If Not dtPremium Is Nothing Then ds.Tables.Add(dtPremium)
+            'If Not dtFileInfo Is Nothing Then ds.Tables.Add(dtFileInfo)
+            'If Not dtFamily Is Nothing Then ds.Tables.Add(dtFamily)
+            'If Not dtInsuree Is Nothing Then ds.Tables.Add(dtInsuree)
+            'If Not dtPolicy Is Nothing Then ds.Tables.Add(dtPolicy)
+            'If Not dtPremium Is Nothing Then ds.Tables.Add(dtPremium)
+            'If Not dtInsureePolicy Is Nothing Then ds.Tables.Add(dtInsureePolicy)
             ' If Not dtInsureePolicy Is Nothing Then ds.Tables.Add(dtInsureePolicy)
-            ds.WriteXml(Writer)
+            'ds.WriteXml(Writer)
 
             Dim xmlEnrollment As String = Writer.ToString
+            Dim xmldoc As New XmlDocument
+            xmldoc.InnerXml = XMLString
 
             'Save XML for future reference
             Dim EnrollmentDir As String = ConfigurationManager.AppSettings("Enrollment_Phone")
             Dim JsonDebugFolder As String = ConfigurationManager.AppSettings("JsonDebugFolder")
             Dim UpdatedFolder As String = ConfigurationManager.AppSettings("UpdatedFolder")
+            Dim SubmittedFolder As String = ConfigurationManager.AppSettings("SubmittedFolder")
             Dim hof As String = ""
             If dtInsuree IsNot Nothing Then
                 If dtInsuree.Select("isHead = '1' OR isHead = 'true'").Count > 0 Then
@@ -1407,16 +1568,14 @@ Public Class Service1
             JsonContents += UserId.ToString()
 
 
-            Dim FileName As String = String.Format("{0}_{1}_{2}.xml", hof, OfficerId.ToString, Format(Now, "dd-MM-yyyy HH-mm-ss"))
+            Dim FileName As String = String.Format("{0}_{1}_{2}.xml", hof, OfficerId.ToString, Format(Now, "dd-MM-yyyy HH-mm-ss.XML"))
             Dim JsonFileName As String = String.Format("{0}_{1}_{2}.txt", hof, OfficerId.ToString, Format(Now, "dd-MM-yyyy HH-mm-ss"))
             Try
-                My.Computer.FileSystem.WriteAllText(Server.MapPath(EnrollmentDir) & FileName, xmlEnrollment, False)
-                If System.IO.Directory.Exists(Server.MapPath(JsonDebugFolder)) Then
-                    My.Computer.FileSystem.WriteAllText(Server.MapPath(JsonDebugFolder) & JsonFileName, JsonContents, False)
-                Else
-                    System.IO.Directory.CreateDirectory(Server.MapPath(JsonDebugFolder))
+                xmldoc.Save(Server.MapPath(EnrollmentDir) & FileName)
+                If Not System.IO.Directory.Exists(Server.MapPath(JsonDebugFolder)) Then
                     My.Computer.FileSystem.WriteAllText(Server.MapPath(JsonDebugFolder) & JsonFileName, JsonContents, False)
                 End If
+                My.Computer.FileSystem.WriteAllText(Server.MapPath(JsonDebugFolder) & JsonFileName, JsonContents, False)
 
                 'For i As Int16 = 0 To dtPictures.Rows.Count
                 '    Dim temp As Byte()
@@ -1424,43 +1583,58 @@ Public Class Service1
 
                 'Next
 
-                If Not Directory.Exists(Server.MapPath(UpdatedFolder)) Then
-                    Directory.CreateDirectory(Server.MapPath(UpdatedFolder))
-                End If
-
-                'Dim updatedFolder As String = 
-
-                For Each picture In Pictures
-                    If Not picture Is Nothing Then
-                        If picture.ImageContent.Length = 0 Then Continue For
-                        File.WriteAllBytes(Server.MapPath(UpdatedFolder) & Path.DirectorySeparatorChar & picture.ImageName, picture.ImageContent)
-                    End If
-                Next
-
-
             Catch ex As Exception
 
             End Try
 
-            sSQL = "uspUploadEnrolmentFromPhone"
+            sSQL = "uspConsumeEnrollments"
             cmd = New SqlCommand(sSQL, con) With {
                 .CommandType = CommandType.StoredProcedure
             }
 
-            cmd.Parameters.Add("@xml", SqlDbType.Xml).Value = xmlEnrollment
-            cmd.Parameters.Add("@OfficerId", SqlDbType.Int).Value = OfficerId
-            cmd.Parameters.Add("@AuditUserId", SqlDbType.Int).Value = UserId
-            cmd.Parameters.Add("@ErrorMessage", SqlDbType.NVarChar, 200).Value = ""
-            cmd.Parameters("@ErrorMessage").Direction = ParameterDirection.Output
+
+            cmd.Parameters.Add("@XML", SqlDbType.Xml).Value = XMLString
+            cmd.Parameters.Add("@FamilySent", SqlDbType.Int).Value = 0
+            cmd.Parameters.Add("@FamilyImported", SqlDbType.Int).Value = 0
+            cmd.Parameters.Add("@FamiliesUpd", SqlDbType.Int).Value = 0
+            cmd.Parameters.Add("@FamilyRejected", SqlDbType.Int).Value = 0
+            cmd.Parameters.Add("@InsureeSent", SqlDbType.Int).Value = 0
+            cmd.Parameters.Add("@InsureeUpd", SqlDbType.Int).Value = 0
+            cmd.Parameters.Add("@InsureeImported", SqlDbType.Int).Value = 0
+            cmd.Parameters.Add("@PolicyImported", SqlDbType.Int).Value = 0
+            cmd.Parameters.Add("@PolicyChanged", SqlDbType.Int).Value = 0
+            cmd.Parameters.Add("@PolicyRejected", SqlDbType.Int).Value = 0
+            cmd.Parameters.Add("@PremiumImported", SqlDbType.Int).Value = 0
+            cmd.Parameters.Add("@PremiumRejected", SqlDbType.Int).Value = 0
             cmd.Parameters.Add("@RV", SqlDbType.Int).Value = -99
             cmd.Parameters("@RV").Direction = ParameterDirection.ReturnValue
+            cmd.Parameters("@InsureeUpd").Direction = ParameterDirection.Output
+            cmd.Parameters("@InsureeImported").Direction = ParameterDirection.Output
 
             If con.State = ConnectionState.Closed Then con.Open()
 
             cmd.ExecuteScalar()
 
-            Dim ErrorMessage As String = cmd.Parameters("@ErrorMessage").Value.ToString
+            Dim InsureeUpd As Integer = If(cmd.Parameters("@InsureeUpd").Value Is DBNull.Value, 0, cmd.Parameters("@InsureeUpd").Value)
+            Dim InsureeImported As Integer = If(cmd.Parameters("@InsureeImported").Value Is DBNull.Value, 0, cmd.Parameters("@InsureeImported").Value)
             Dim RV As Integer = cmd.Parameters("@RV").Value
+
+            If RV = 0 And (InsureeImported > 0 Or InsureeUpd > 0) Then 'Put Photos in UpdatedFolder
+                If Not Directory.Exists(Server.MapPath(UpdatedFolder)) Then
+                    Directory.CreateDirectory(Server.MapPath(UpdatedFolder))
+                End If
+
+                'WE SHOULD CHECK IF PHOTOS IS PROVIDED FOR PUBLIC API
+                For Each picture In Pictures
+                    If Not picture Is Nothing Then
+                        If Not picture.ImageContent Is Nothing Then
+                            If picture.ImageContent.Length = 0 Then Continue For
+                            File.WriteAllBytes(Server.MapPath(UpdatedFolder) & Path.DirectorySeparatorChar & picture.ImageName, picture.ImageContent)
+                        End If
+
+                    End If
+                Next
+            End If
             Return RV
 
         Catch ex As Exception
@@ -1574,6 +1748,14 @@ Public Class Service1
         dt.TableName = "Professions"
         Return dt
     End Function
+    Private Function getGenders() As DataTable
+        Dim sSQL As String = "SELECT Code, Gender, AltLanguage,SortOrder FROM tblGender"
+        Dim data As New SQLHelper
+        data.setSQLCommand(sSQL, CommandType.Text)
+        Dim dt As DataTable = data.Filldata()
+        dt.TableName = "Genders"
+        Return dt
+    End Function
     Private Function getRelations() As DataTable
         Dim sSQL As String = "SELECT Relationid, Relation, SortOrder, AltLanguage FROM tblRelations"
         Dim data As New SQLHelper
@@ -1612,17 +1794,18 @@ Public Class Service1
     End Function
 
     '--Insuree to modify
+
+    '
     Private Function getInsurees(ByVal FamilyId As Integer) As DataTable
         Dim sSQL As String = ""
         Dim data As New SQLHelper
         sSQL = "SELECT ISNULL(I.Passport,'') IdentificationNumber, I.InsureeId, FamilyId, I.CHFID, LastName, OtherNames,  FORMAT(DOB, 'yyyy-MM-dd') DOB, Gender, Marital, CAST(IsHead AS INT)IsHead, ISNULL(Phone,'') Phone, CAST(CardIssued AS INT)CardIssued, Relationship,"
-        sSQL += " ISNULL(Profession,'')Profession, ISNULL(Education,'')Education, ISNULL(Email,'')Email, TypeOfId, HFID, ISNULL(CurrentAddress,'')CurrentAddress, GeoLocation, CurrentVillage CurVillage, PhotoFileName PhotoPath,"
+        sSQL += " ISNULL(Profession,'')Profession, ISNULL(Education,'')Education, ISNULL(Email,'')Email, TypeOfId, HFID, ISNULL(CurrentAddress,'')CurrentAddress, GeoLocation, CurrentVillage CurVillage,PhotoFileName PhotoPath,"
         sSQL += " id.IdentificationTypes, 0 isOffline"
         sSQL += " FROM tblInsuree I"
-        sSQL += " LEFT JOIN tblPhotos P ON P.PhotoID = I.PhotoID"
+        sSQL += " LEFT JOIN tblPhotos P ON P.PhotoID = I.PhotoID AND P.ValidityTo IS NULL "
         sSQL += " LEFT JOIN tblIdentificationTypes Id ON Id.IdentificationCode = I.TypeOfId"
         sSQL += " WHERE I.ValidityTo IS NULL"
-        sSQL += " AND P.ValidityTo IS NULL"
         ' sSQL += " AND (I.CHFID = @CHFID OR IsHead = 1)"
         sSQL += " AND FamilyID = @FamilyId"
 
@@ -1633,7 +1816,7 @@ Public Class Service1
         dt.TableName = "Insurees"
         Return dt
     End Function
-    '
+
     '--Policy to Modify
     Private Function getPolicy(ByVal FamilyId As Integer, CHFID As Integer)
         Dim sSQL As String = ""
@@ -1687,8 +1870,8 @@ Public Class Service1
         Return dt
     End Function
 
-    <WebMethod()> _
-    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)> _
+    <WebMethod()>
+    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)>
     Public Function downloadMasterData() As String
         Dim dtConfirmationTypes As DataTable = getConfirmationTypes()
         Dim dtControls As DataTable = getControls()
@@ -1699,11 +1882,12 @@ Public Class Service1
         Dim dtLanguages As DataTable = getLanguages()
         Dim dtLocations As DataTable = getLocations()
         Dim dtOfficers As DataTable = getOfficers()
-        Dim dtPayers As DataTable = GetPayers()
+        Dim dtPayers As DataTable = getPayers()
         Dim dtProducts As DataTable = getProducts()
         Dim dtProfessions As DataTable = getProfessions()
         Dim dtRelations As DataTable = getRelations()
         Dim dtPhoneDefaults As DataTable = GetPhoneDefaults()
+        Dim dtGenders As DataTable = getGenders()
 
         Dim ConfirmationTypes As String = "{""ConfirmationTypes"":" & GetJsonFromDt(dtConfirmationTypes) & "}"
         Dim Controls As String = "{""Controls"":" & GetJsonFromDt(dtControls) & "}"
@@ -1719,11 +1903,12 @@ Public Class Service1
         Dim Professions As String = "{""Professions"":" & GetJsonFromDt(dtProfessions) & "}"
         Dim Relations As String = "{""Relations"":" & GetJsonFromDt(dtRelations) & "}"
         Dim PhoneDefaults As String = "{""PhoneDefaults"":" & GetJsonFromDt(dtPhoneDefaults) & "}"
+        Dim Genders As String = "{""Genders"":" & GetJsonFromDt(dtGenders) & "}"
 
 
         Dim Json As String = "["
         Json += ConfirmationTypes + ", " + Controls + ", " + Education + ", " + FamilyTypes + ", " + HF + ", " + IdentificationTypes + ", " + Languages + ", " + Locations + ", " +
-            Officers + ", " + Payers + ", " + Products + ", " + Professions + ", " + Relations + ", " + PhoneDefaults
+            Officers + ", " + Payers + ", " + Products + ", " + Professions + ", " + Relations + ", " + PhoneDefaults + ", " + Genders
         Json += "]"
 
         Return Json
