@@ -262,3 +262,12 @@ __pycache__/
 
 # SonarQube 
 .sonarqube
+
+
+**/Extracts/
+**/Archive/
+**/FromPhone/
+**/Images/Submitted/
+**/Images/Updated/
+**/Workspace/
+!dummy.dmd 
