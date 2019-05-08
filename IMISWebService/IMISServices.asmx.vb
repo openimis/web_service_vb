@@ -1784,7 +1784,7 @@ Public Class Service1
     End Function
 
     Private Function GetPhoneDefaults() As DataTable
-        Dim sSQL As String = "SELECT RuleName, RuleValue FROM tblIMISDetaulsPhone;"
+        Dim sSQL As String = "SELECT RuleName, RuleValue FROM tblIMISDefaultsPhone;"
         Dim data As New SQLHelper
         data.setSQLCommand(sSQL, CommandType.Text)
         Dim dt As DataTable = data.Filldata
