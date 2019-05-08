@@ -26,6 +26,7 @@
 
 Imports System.Data.SqlClient
 Imports System.IO
+Imports System.Security.Cryptography
 Imports System.Web.Script.Serialization
 Imports System.Web.Script.Services
 Imports System.Web.Services
@@ -1286,26 +1287,22 @@ Public Class Service1
     End Function
 
 #Region "Android Front End"
-    <WebMethod> _
+    <WebMethod>
     Public Function isValidLogin(LoginName As String, Password As String) As Integer
         Dim sSQL As String = ""
         Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
         Dim con As New SqlConnection(ConStr)
 
-        sSQL = " OPEN SYMMETRIC KEY EncryptionKey DECRYPTION BY Certificate EncryptData;" & _
-              " SELECT UserID,LoginName, LanguageID, RoleID" & _
-              " FROM tblUsers" & _
-              " WHERE LoginName = @LoginName" & _
-              " AND  CONVERT(NVARCHAR(25), DECRYPTBYKEY(Password)) COLLATE LATIN1_GENERAL_CS_AS = @Password" & _
-              " AND ValidityTo is null" & _
-              " CLOSE SYMMETRIC KEY EncryptionKey"
+        sSQL = " SELECT UserID,LoginName, LanguageID, RoleID,StoredPassword,PrivateKey" &
+               " FROM tblUsers" &
+               " WHERE LoginName = @LoginName" &
+               " AND ValidityTo is null"
 
         Dim cmd As New SqlCommand(sSQL, con) With {
             .CommandType = CommandType.Text
         }
 
         cmd.Parameters.Add("@LoginName", SqlDbType.NVarChar, 50).Value = LoginName
-        cmd.Parameters.Add("@Password", SqlDbType.NVarChar, 50).Value = Password
 
         If con.State = ConnectionState.Closed Then con.Open()
 
@@ -1314,17 +1311,38 @@ Public Class Service1
         da.Fill(dt)
 
         If dt.Rows.Count > 0 Then
-            If (dt(0)("RoleId") And 1) > 0 Then
-                Return dt(0)("UserId")
-            Else
-                Return 0
+            Dim StoredPassword As String
+            Dim PrivateKey As String
+
+            StoredPassword = dt.Rows(0)("StoredPassword").ToString
+            PrivateKey = dt.Rows(0)("PrivateKey").ToString
+
+            If GenerateSHA256String(Password + PrivateKey) = StoredPassword Then
+                If (dt(0)("RoleId") And 1) > 0 Then
+                    Return dt(0)("UserId")
+                Else
+                    Return 0
+                End If
             End If
+            Return 0
         Else
             Return 0
         End If
 
         Return 0
 
+    End Function
+    Private Function GenerateSHA256String(ByVal inputString) As String
+        Dim sha256 As SHA256 = SHA256Managed.Create()
+        Dim bytes As Byte() = Encoding.UTF8.GetBytes(inputString)
+        Dim hash As Byte() = sha256.ComputeHash(bytes)
+        Dim stringBuilder As New StringBuilder()
+
+        For i As Integer = 0 To hash.Length - 1
+            stringBuilder.Append(hash(i).ToString("X2"))
+        Next
+
+        Return stringBuilder.ToString()
     End Function
 
     Private Function getJsonToDt(json As String) As DataTable
@@ -1766,7 +1784,7 @@ Public Class Service1
     End Function
 
     Private Function GetPhoneDefaults() As DataTable
-        Dim sSQL As String = "SELECT RuleName, RuleValue FROM tblIMISDetaulsPhone;"
+        Dim sSQL As String = "SELECT RuleName, RuleValue FROM tblIMISDefaultsPhone;"
         Dim data As New SQLHelper
         data.setSQLCommand(sSQL, CommandType.Text)
         Dim dt As DataTable = data.Filldata
