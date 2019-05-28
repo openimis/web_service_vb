@@ -2005,7 +2005,19 @@ Public Class Service1
     End Function
 
     <WebMethod>
-    Public Function DeleteFromPhone(Id As Integer, AuditUserID As Integer, DeleteInfo As String) As Integer
+    Public Function DeleteFromPhone(UUID As String, AuditUserUUID As String, DeleteInfo As String) As Integer
+
+        Dim Extract As New IMISExtractsDAL
+        Dim Id As Integer
+        Dim AuditUserID As Integer
+
+        Try
+            Id = Extract.GetEntityIdByUUID(Guid.Parse(UUID), "Family", "tblFamilies")
+            AuditUserID = Extract.GetEntityIdByUUID(Guid.Parse(AuditUserUUID), "User", "tblUsers")
+        Catch ex As Exception
+
+        End Try
+
         Dim sSQL As String = ""
         Dim data As New SQLHelper
         sSQL = "uspDeleteFromPhone"
