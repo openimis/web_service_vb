@@ -1263,7 +1263,24 @@ Public Class Service1
 
     'Calculate The policyValue
     <WebMethod>
-    Public Function getPolicyValue(ByVal FamilyId As Integer, ByVal ProdId As Integer, ByVal PolicyId As Integer, ByVal PolicyStage As String, ByVal EnrollDate As String, ByVal PreviousPolicyId As Integer) As Double
+    Public Function getPolicyValue(ByVal FamilyUUID As String, ByVal ProdUUID As String, ByVal PolicyUUID As String, ByVal PolicyStage As String, ByVal EnrollDate As String, ByVal PreviousPolicyUUID As String) As Double
+
+        Dim Extract As New IMISExtractsDAL
+        Dim FamilyId As Integer
+        Dim ProdId As Integer
+        Dim PolicyId As Integer
+        Dim PreviousPolicyId As Integer
+
+        Try
+            FamilyId = Extract.GetEntityIdByUUID(Guid.Parse(FamilyUUID), "Family", "tblFamilies")
+            ProdId = Extract.GetEntityIdByUUID(Guid.Parse(ProdUUID), "Prod", "tblProduct")
+            PolicyId = Extract.GetEntityIdByUUID(Guid.Parse(PolicyUUID), "Policy", "tblPolicy")
+            PreviousPolicyId = Extract.GetEntityIdByUUID(Guid.Parse(PreviousPolicyUUID), "Policy", "tblPolicy")
+        Catch ex As Exception
+
+
+        End Try
+
         Dim data As New SQLHelper
         Dim sSQL As String = "uspPolicyValue"
         data.setSQLCommand(sSQL, CommandType.StoredProcedure)
