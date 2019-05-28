@@ -776,7 +776,18 @@ Public Class Service1
         Return JString
     End Function
     <WebMethod()>
-    Public Sub DiscontinuePolicy(ByVal RenewalId As Integer)
+    Public Sub DiscontinuePolicy(ByVal RenewalUUID As String)
+
+        Dim Extract As New IMISExtractsDAL
+        Dim RenewalId As Integer
+
+        Try
+            RenewalId = Extract.GetEntityIdByUUID(Guid.Parse(RenewalUUID), "Renewal", "tblPolicyRenewals")
+        Catch ex As Exception
+
+
+        End Try
+
         Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
         Dim con As New SqlConnection(ConStr)
         Dim sSQL As String = ""
