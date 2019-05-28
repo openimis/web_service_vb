@@ -1020,12 +1020,22 @@ Public Class Service1
 
 
     <WebMethod>
-    Public Function CreatePhoneExtracts(ByVal DistrictId As Integer, ByVal UserId As Integer, ByVal WithInsuree As Boolean) As Boolean
+    Public Function CreatePhoneExtracts(ByVal DistrictUUID As String, ByVal UserUUID As String, ByVal WithInsuree As Boolean) As Boolean
         Dim sp As New Stopwatch
         sp.Start()
 
         Dim Extracts As New PhoneExtracts
         Dim eExtractInfo As New eExtractInfo
+        Dim Extract As New IMISExtractsDAL
+        Dim UserId As Integer
+        Dim DistrictId As Integer
+
+        Try
+            DistrictId = Extract.GetEntityIdByUUID(Guid.Parse(DistrictUUID), "Location", "tblLocations")
+            UserId = Extract.GetEntityIdByUUID(Guid.Parse(UserUUID), "User", "tblUsers")
+        Catch ex As Exception
+
+        End Try
 
         eExtractInfo.DistrictID = DistrictId
         eExtractInfo.AuditUserID = UserId
