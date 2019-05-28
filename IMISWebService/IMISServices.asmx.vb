@@ -1408,8 +1408,19 @@ Public Class Service1
     End Function
 
     <WebMethod>
-    Public Function EnrollFamily(Family As String, Insuree As String, Policy As String, Premium As String, InsureePolicy As String, OfficerId As Integer, UserId As Integer, Pictures() As InsureeImages) As Integer
+    Public Function EnrollFamily(Family As String, Insuree As String, Policy As String, Premium As String, InsureePolicy As String, OfficerUUID As String, UserUUID As String, Pictures() As InsureeImages) As Integer
 
+        Dim Extract As New IMISExtractsDAL
+        Dim OfficerId As Integer
+        Dim UserId As Integer
+
+        Try
+            OfficerId = Extract.GetEntityIdByUUID(Guid.Parse(OfficerUUID), "Officer", "tblOfficer")
+            UserId = Extract.GetEntityIdByUUID(Guid.Parse(UserUUID), "User", "tblUsers")
+        Catch ex As Exception
+
+
+        End Try
 
         Dim sSQL As String = ""
         Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
