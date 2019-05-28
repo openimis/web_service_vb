@@ -1074,12 +1074,24 @@ Public Class Service1
 
     'added by amani 28/09
     <WebMethod>
-    Public Function CreateOfflineExtract(ByVal RegionId As Integer, ByVal DistrictId As Integer, ByVal UserId As Integer, ByVal WithInsuree As Boolean, ByVal ChkFullExtract As Boolean) As Boolean
+    Public Function CreateOfflineExtract(ByVal RegionUUID As String, ByVal DistrictUUID As String, ByVal UserUUID As String, ByVal WithInsuree As Boolean, ByVal ChkFullExtract As Boolean) As Boolean
 
         Dim Extracts As New OffLineExtracts
         Dim eExtractInfo As New eExtractInfo
         Dim Extract As New IMISExtractsDAL
         Dim eExtract As New tblExtracts
+        Dim UserId As Integer
+        Dim RegionId As Integer
+        Dim DistrictId As Integer
+
+        Try
+            RegionId = Extract.GetEntityIdByUUID(Guid.Parse(RegionUUID), "Location", "tblLocations")
+            DistrictId = Extract.GetEntityIdByUUID(Guid.Parse(DistrictUUID), "Location", "tblLocations")
+            UserId = Extract.GetEntityIdByUUID(Guid.Parse(UserUUID), "User", "tblUsers")
+        Catch ex As Exception
+
+        End Try
+
         ' Dim EmailMessage = "Offline extract is ready to download"
         Dim FolderPath As String = Server.MapPath(ConfigurationManager.AppSettings("Extracts_Offline"))
         eExtractInfo.WithInsuree = WithInsuree

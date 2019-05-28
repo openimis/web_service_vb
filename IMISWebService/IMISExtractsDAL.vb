@@ -582,4 +582,16 @@ Public Class IMISExtractsDAL
         Dim dt As DataTable = data.Filldata
         Return If(dt.Rows(0)("ExtractSequence") Is DBNull.Value, 1, dt.Rows(0)("ExtractSequence") + 1)
     End Function
+
+    Public Function GetEntityIdByUUID(ByVal uuid As Guid, ByVal entity As String, ByVal table As String) As Integer
+        Dim sSQL As String = ""
+        Dim data As New SQLHelper
+
+        sSQL = "select " & entity & "ID from " & table & " where " & entity & "UUID = @" & entity & "UUID"
+
+        data.setSQLCommand(sSQL, CommandType.Text)
+        data.params("@" & entity & "UUID", SqlDbType.UniqueIdentifier, uuid)
+
+        Return data.Filldata.Rows(0).Item(0)
+    End Function
 End Class
