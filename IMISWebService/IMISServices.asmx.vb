@@ -1280,7 +1280,18 @@ Public Class Service1
 
     <WebMethod>
     <ScriptMethod(ResponseFormat:=ResponseFormat.Json)>
-    Public Function GetSnapshotIndicators(ByVal SnapshotDate As String, ByVal OfficerId As Integer) As String
+    Public Function GetSnapshotIndicators(ByVal SnapshotDate As String, ByVal OfficerUUID As String) As String
+
+        Dim Extract As New IMISExtractsDAL
+        Dim OfficerId As Integer
+
+        Try
+            OfficerId = Extract.GetEntityIdByUUID(Guid.Parse(OfficerUUID), "Officer", "tblOfficer")
+        Catch ex As Exception
+
+
+        End Try
+
         Dim data As New SQLHelper
         Dim sSQL As String = "SELECT Active, Expired, Idle, Suspended FROM dbo.udfGetSnapshotIndicators(@SnapshotDate,@OfficerId)"
         data.setSQLCommand(sSQL, CommandType.Text)
