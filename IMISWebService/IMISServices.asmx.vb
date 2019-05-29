@@ -1764,7 +1764,7 @@ Public Class Service1
         Return dt
     End Function
     Private Function getEducations() As DataTable
-        Dim sSQL As String = "SELECT EducationId, Education, SortOrder, AltLanguage FROM tblEducations"
+        Dim sSQL As String = "SELECT EducationUUID, Education, SortOrder, AltLanguage FROM tblEducations"
         Dim data As New SQLHelper
         data.setSQLCommand(sSQL, CommandType.Text)
         Dim dt As DataTable = data.Filldata()
@@ -1780,7 +1780,9 @@ Public Class Service1
         Return dt
     End Function
     Private Function getHFs() As DataTable
-        Dim sSQL As String = "SELECT HFID, HFCode, HFName, LocationId, HFLevel FROM tblHF WHERE ValidityTo IS NULL"
+        Dim sSQL As String = "SELECT HFUUID, HFCode, HFName, L.LocationUUID, HFLevel FROM tblHF Hf"
+        sSQL += " INNER JOIN tblLocations L ON L.LocationId = Hf.LocationId"
+        sSQL += " WHERE Hf.ValidityTo IS NULL"
         Dim data As New SQLHelper
         data.setSQLCommand(sSQL, CommandType.Text)
         Dim dt As DataTable = data.Filldata()
@@ -1804,7 +1806,9 @@ Public Class Service1
         Return dt
     End Function
     Private Function getLocations() As DataTable
-        Dim sSQL As String = "SELECT LocationId, LocationCode, LocationName, ParentLocationId, LocationType FROM tblLocations WHERE ValidityTo IS NULL AND NOT(LocationName='Funding' OR LocationCode='FR' OR LocationCode='FD' OR LocationCode='FW' OR LocationCode='FV')"
+        Dim sSQL As String = "SELECT L.LocationUUID, L.LocationCode, L.LocationName, L2.LocationUUID ParentLocationUUID, L.LocationType FROM tblLocations L"
+        sSQL += " INNER JOIN tblLocations L2 ON L.ParentLocationId = L2.LocationId"
+        sSQL += " WHERE L.ValidityTo IS NULL AND NOT(L.LocationName='Funding' OR L.LocationCode='FR' OR L.LocationCode='FD' OR L.LocationCode='FW' OR L.LocationCode='FV')"
         Dim data As New SQLHelper
         data.setSQLCommand(sSQL, CommandType.Text)
         Dim dt As DataTable = data.Filldata()
@@ -1812,7 +1816,9 @@ Public Class Service1
         Return dt
     End Function
     Private Function getOfficers() As DataTable
-        Dim sSQL As String = "SELECT OfficerId, Code, LastName, OtherNames, Phone, LocationId, OfficerIDSubst, FORMAT(WorksTo, 'yyyy-MM-dd')WorksTo FROM tblOfficer WHERE ValidityTo IS NULL"
+        Dim sSQL As String = "SELECT OfficerUUID, Code, LastName, OtherNames, Phone, L.LocationUUID, OfficerIDSubst, FORMAT(WorksTo, 'yyyy-MM-dd')WorksTo FROM tblOfficer O"
+        sSQL += " INNER JOIN tblLocations L ON L.LocationId = O.LocationId"
+        sSQL += " WHERE O.ValidityTo IS NULL"
         Dim data As New SQLHelper
         data.setSQLCommand(sSQL, CommandType.Text)
         Dim dt As DataTable = data.Filldata()
@@ -1820,7 +1826,9 @@ Public Class Service1
         Return dt
     End Function
     Private Function getPayers() As DataTable
-        Dim sSQL As String = "SELECT payerId, PayerName, LocationId FROM tblPayer WHERE ValidityTo IS NULL"
+        Dim sSQL As String = "SELECT payerUUID, PayerName, L.LocationUUID FROM tblPayer P"
+        sSQL += " INNER JOIN tblLocations L ON L.LocationId = P.LocationId"
+        sSQL += " WHERE P.ValidityTo IS NULL"
         Dim data As New SQLHelper
         data.setSQLCommand(sSQL, CommandType.Text)
         Dim dt As DataTable = data.Filldata()
@@ -1829,11 +1837,14 @@ Public Class Service1
     End Function
     Private Function getProducts() As DataTable
         Dim sSQL As String = ""
-        sSQL = "SELECT ProdId, ProductCode, ProductName, LocationId, InsurancePeriod, FORMAT(DateFrom, 'yyyy-MM-dd')DateFrom, FORMAT(DateTo, 'yyyy-MM-dd')DateTo, ConversionProdId , Lumpsum,"
-        sSQL += " MemberCount, PremiumAdult, PremiumChild, RegistrationLumpsum, RegistrationFee, GeneralAssemblyLumpSum, GeneralAssemblyFee,"
-        sSQL += " StartCycle1, StartCycle2, StartCycle3, StartCycle4, GracePeriodRenewal, MaxInstallments, WaitingPeriod, Threshold,"
-        sSQL += " RenewalDiscountPerc, RenewalDiscountPeriod, AdministrationPeriod, EnrolmentDiscountPerc, EnrolmentDiscountPeriod, GracePeriod"
-        sSQL += " FROM tblProduct WHERE ValidityTo IS NULL"
+        sSQL = "SELECT P.ProdUUID, P.ProductCode, P.ProductName, L.LocationUUID, P.InsurancePeriod, FORMAT(P.DateFrom, 'yyyy-MM-dd')DateFrom, FORMAT(P.DateTo, 'yyyy-MM-dd')DateTo, P2.ProdUUID ConversionProdId , P.Lumpsum,"
+        sSQL += " P.MemberCount, P.PremiumAdult, P.PremiumChild, P.RegistrationLumpsum, P.RegistrationFee, P.GeneralAssemblyLumpSum, P.GeneralAssemblyFee,"
+        sSQL += " P.StartCycle1, P.StartCycle2, P.StartCycle3, P.StartCycle4, P.GracePeriodRenewal, P.MaxInstallments, P.WaitingPeriod, P.Threshold,"
+        sSQL += " P.RenewalDiscountPerc, P.RenewalDiscountPeriod, P.AdministrationPeriod, P.EnrolmentDiscountPerc, P.EnrolmentDiscountPeriod, P.GracePeriod"
+        sSQL += " FROM tblProduct P"
+        sSQL += " INNER JOIN tblLocations L ON L.LocationId = P.LocationId"
+        sSQL += " LEFT JOIN tblProduct P2 ON P.ConversionProdId = P2.ProdId"
+        sSQL += " WHERE P.ValidityTo IS NULL"
 
         Dim data As New SQLHelper
         data.setSQLCommand(sSQL, CommandType.Text)
@@ -1842,7 +1853,7 @@ Public Class Service1
         Return dt
     End Function
     Private Function getProfessions() As DataTable
-        Dim sSQL As String = "SELECT ProfessionId, Profession, SortOrder, AltLanguage FROM tblProfessions"
+        Dim sSQL As String = "SELECT ProfessionUUID, Profession, SortOrder, AltLanguage FROM tblProfessions"
         Dim data As New SQLHelper
         data.setSQLCommand(sSQL, CommandType.Text)
         Dim dt As DataTable = data.Filldata()
@@ -1858,7 +1869,7 @@ Public Class Service1
         Return dt
     End Function
     Private Function getRelations() As DataTable
-        Dim sSQL As String = "SELECT Relationid, Relation, SortOrder, AltLanguage FROM tblRelations"
+        Dim sSQL As String = "SELECT RelationUUID, Relation, SortOrder, AltLanguage FROM tblRelations"
         Dim data As New SQLHelper
         data.setSQLCommand(sSQL, CommandType.Text)
         Dim dt As DataTable = data.Filldata()
@@ -1895,28 +1906,6 @@ Public Class Service1
         Return dt
     End Function
 
-    Private Function getInsureesssXXXXX(ByVal FamilyId As Integer) As DataTable
-        Dim sSQL As String = ""
-        Dim data As New SQLHelper
-        sSQL = "SELECT ISNULL(I.Passport,'') IdentificationNumber, I.InsureeUUID, F.FamilyUUID, I.CHFID, LastName, OtherNames,  FORMAT(DOB, 'yyyy-MM-dd') DOB, Gender, Marital, CAST(IsHead AS INT)IsHead, ISNULL(I.Phone,'') Phone, CAST(CardIssued AS INT)CardIssued, Relationship,"
-        sSQL += " ISNULL(Profession,'')Profession, ISNULL(Education,'')Education, ISNULL(I.Email,'')Email, TypeOfId, H.HFUUID, ISNULL(CurrentAddress,'')CurrentAddress, GeoLocation, CurrentVillage CurVillage,PhotoFileName PhotoPath,"
-        sSQL += " id.IdentificationTypes, 0 isOffline"
-        sSQL += " FROM tblInsuree I"
-        sSQL += " INNER JOIN tblFamilies F ON F.FamilyID = I.FamilyID "
-        sSQL += " INNER JOIN tblHF H ON H.HFID = I.HFID "
-        sSQL += " LEFT JOIN tblPhotos P ON P.PhotoID = I.PhotoID AND P.ValidityTo IS NULL "
-        sSQL += " LEFT JOIN tblIdentificationTypes Id ON Id.IdentificationCode = I.TypeOfId"
-        sSQL += " WHERE I.ValidityTo IS NULL"
-        ' sSQL += " AND (I.CHFID = @CHFID OR IsHead = 1)"
-        sSQL += " AND I.FamilyID = @FamilyId"
-
-        data.setSQLCommand(sSQL, CommandType.Text)
-        data.params("@FamilyId", FamilyId)
-        ' data.params("@CHFID", CHFID)
-        Dim dt As DataTable = data.Filldata()
-        dt.TableName = "Insurees"
-        Return dt
-    End Function
 
     '--Insuree to modify
 
