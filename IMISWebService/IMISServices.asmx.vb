@@ -1882,15 +1882,39 @@ Public Class Service1
     Private Function getFamilies(ByVal FamilyId As Integer) As DataTable
         Dim sSQL As String = ""
         Dim data As New SQLHelper
-        sSQL = " SELECT F.FamilyId, I.InsureeId, LocationId, Poverty, FamilyType, FamilyAddress, Ethnicity, ConfirmationNo, ConfirmationType,"
+        sSQL = " SELECT F.FamilyUUID, I.InsureeUUID, L.LocationUUID, Poverty, FamilyType, FamilyAddress, Ethnicity, ConfirmationNo, ConfirmationType,"
         sSQL += " CAST(IsHead AS INT)IsHead, 0 isOffline"
         sSQL += " FROM tblFamilies F"
         sSQL += " INNER JOIN tblInsuree I ON I.FamilyID =F.FamilyID"
+        sSQL += " INNER JOIN tblLocations L ON F.LocationId =L.LocationId"
         sSQL += " WHERE F.ValidityTo IS NULL AND I.ValidityTo IS NULL AND F.FamilyID =@FamilyId AND  I.IsHead = 1"
         data.setSQLCommand(sSQL, CommandType.Text)
         data.params("@FamilyId", FamilyId)
         Dim dt As DataTable = data.Filldata()
         dt.TableName = "Families"
+        Return dt
+    End Function
+
+    Private Function getInsureesssXXXXX(ByVal FamilyId As Integer) As DataTable
+        Dim sSQL As String = ""
+        Dim data As New SQLHelper
+        sSQL = "SELECT ISNULL(I.Passport,'') IdentificationNumber, I.InsureeUUID, F.FamilyUUID, I.CHFID, LastName, OtherNames,  FORMAT(DOB, 'yyyy-MM-dd') DOB, Gender, Marital, CAST(IsHead AS INT)IsHead, ISNULL(I.Phone,'') Phone, CAST(CardIssued AS INT)CardIssued, Relationship,"
+        sSQL += " ISNULL(Profession,'')Profession, ISNULL(Education,'')Education, ISNULL(I.Email,'')Email, TypeOfId, H.HFUUID, ISNULL(CurrentAddress,'')CurrentAddress, GeoLocation, CurrentVillage CurVillage,PhotoFileName PhotoPath,"
+        sSQL += " id.IdentificationTypes, 0 isOffline"
+        sSQL += " FROM tblInsuree I"
+        sSQL += " INNER JOIN tblFamilies F ON F.FamilyID = I.FamilyID "
+        sSQL += " INNER JOIN tblHF H ON H.HFID = I.HFID "
+        sSQL += " LEFT JOIN tblPhotos P ON P.PhotoID = I.PhotoID AND P.ValidityTo IS NULL "
+        sSQL += " LEFT JOIN tblIdentificationTypes Id ON Id.IdentificationCode = I.TypeOfId"
+        sSQL += " WHERE I.ValidityTo IS NULL"
+        ' sSQL += " AND (I.CHFID = @CHFID OR IsHead = 1)"
+        sSQL += " AND I.FamilyID = @FamilyId"
+
+        data.setSQLCommand(sSQL, CommandType.Text)
+        data.params("@FamilyId", FamilyId)
+        ' data.params("@CHFID", CHFID)
+        Dim dt As DataTable = data.Filldata()
+        dt.TableName = "Insurees"
         Return dt
     End Function
 
@@ -1900,15 +1924,21 @@ Public Class Service1
     Private Function getInsurees(ByVal FamilyId As Integer) As DataTable
         Dim sSQL As String = ""
         Dim data As New SQLHelper
-        sSQL = "SELECT ISNULL(I.Passport,'') IdentificationNumber, I.InsureeId, FamilyId, I.CHFID, LastName, OtherNames,  FORMAT(DOB, 'yyyy-MM-dd') DOB, Gender, Marital, CAST(IsHead AS INT)IsHead, ISNULL(Phone,'') Phone, CAST(CardIssued AS INT)CardIssued, Relationship,"
-        sSQL += " ISNULL(Profession,'')Profession, ISNULL(Education,'')Education, ISNULL(Email,'')Email, TypeOfId, HFID, ISNULL(CurrentAddress,'')CurrentAddress, GeoLocation, CurrentVillage CurVillage,PhotoFileName PhotoPath,"
+        sSQL = "SELECT ISNULL(I.Passport,'') IdentificationNumber, I.InsureeUUID, F.FamilyUUID, I.CHFID, LastName, OtherNames,  FORMAT(DOB, 'yyyy-MM-dd') DOB, Gender, Marital, CAST(IsHead AS INT)IsHead, ISNULL(I.Phone,'') Phone, CAST(CardIssued AS INT)CardIssued, R.RelationUUID Relationship,"
+        sSQL += " Prof.ProfessionUUID Profession, E.EducationUUID Education, ISNULL(I.Email,'')Email, TypeOfId, H.HFUUID HFUUID, ISNULL(CurrentAddress,'')CurrentAddress, GeoLocation, L.LocationUUID CurVillage,PhotoFileName PhotoPath,"
         sSQL += " id.IdentificationTypes, 0 isOffline"
         sSQL += " FROM tblInsuree I"
+        sSQL += " INNER JOIN tblFamilies F ON F.FamilyID = I.FamilyID "
+        sSQL += " LEFT JOIN tblHF H ON I.HfID = H.HFID"
+        sSQL += " LEFT JOIN tblRelations R ON R.RelationID = I.Relationship "
+        sSQL += " LEFT JOIN tblProfessions Prof ON Prof.ProfessionID = I.Profession "
+        sSQL += " LEFT JOIN tblEducations E ON E.EducationID = I.Education "
         sSQL += " LEFT JOIN tblPhotos P ON P.PhotoID = I.PhotoID AND P.ValidityTo IS NULL "
         sSQL += " LEFT JOIN tblIdentificationTypes Id ON Id.IdentificationCode = I.TypeOfId"
+        sSQL += " LEFT JOIN tblLocations L ON I.CurrentVillage = L.LocationId"
         sSQL += " WHERE I.ValidityTo IS NULL"
         ' sSQL += " AND (I.CHFID = @CHFID OR IsHead = 1)"
-        sSQL += " AND FamilyID = @FamilyId"
+        sSQL += " AND I.FamilyID = @FamilyId"
 
         data.setSQLCommand(sSQL, CommandType.Text)
         data.params("@FamilyId", FamilyId)
@@ -2018,7 +2048,17 @@ Public Class Service1
 
     <WebMethod()>
     <ScriptMethod(ResponseFormat:=ResponseFormat.Json)>
-    Public Function DownloadFamilyData(ByVal CHFID As String, ByVal LocationId As Integer) As String
+    Public Function DownloadFamilyData(ByVal CHFID As String, ByVal LocationUUID As String) As String
+
+        Dim Extract As New IMISExtractsDAL
+        Dim LocationId As Integer
+
+        Try
+            LocationId = Extract.GetEntityIdByUUID(Guid.Parse(LocationUUID), "Location", "tblLocations")
+        Catch ex As Exception
+
+        End Try
+
         Dim FamilyId As Integer
         Dim sSQL As String = ""
         Dim data As New SQLHelper
@@ -2045,10 +2085,9 @@ Public Class Service1
         If dt.Rows.Count = 0 Then Return "[]"
         FamilyId = dt.Rows(0)("FamilyID")
 
-
-
         Dim dtFamilies As DataTable = getFamilies(FamilyId)
         Dim dtInsurees As DataTable = getInsurees(FamilyId)
+
         'Dim dtPolicy As DataTable = getPolicy(FamilyId, CHFID)
         'Dim dtInsureePolicy As DataTable = getInsureePolicy(FamilyId, CHFID)
         'Dim dtPremiums As DataTable = getPremiums(FamilyId)
