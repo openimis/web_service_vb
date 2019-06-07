@@ -1764,7 +1764,7 @@ Public Class Service1
         Return dt
     End Function
     Private Function getEducations() As DataTable
-        Dim sSQL As String = "SELECT EducationUUID, Education, SortOrder, AltLanguage FROM tblEducations"
+        Dim sSQL As String = "SELECT EducationId, Education, SortOrder, AltLanguage FROM tblEducations"
         Dim data As New SQLHelper
         data.setSQLCommand(sSQL, CommandType.Text)
         Dim dt As DataTable = data.Filldata()
@@ -1853,7 +1853,7 @@ Public Class Service1
         Return dt
     End Function
     Private Function getProfessions() As DataTable
-        Dim sSQL As String = "SELECT ProfessionUUID, Profession, SortOrder, AltLanguage FROM tblProfessions"
+        Dim sSQL As String = "SELECT ProfessionId, Profession, SortOrder, AltLanguage FROM tblProfessions"
         Dim data As New SQLHelper
         data.setSQLCommand(sSQL, CommandType.Text)
         Dim dt As DataTable = data.Filldata()
@@ -1869,7 +1869,7 @@ Public Class Service1
         Return dt
     End Function
     Private Function getRelations() As DataTable
-        Dim sSQL As String = "SELECT RelationUUID, Relation, SortOrder, AltLanguage FROM tblRelations"
+        Dim sSQL As String = "SELECT Relationid, Relation, SortOrder, AltLanguage FROM tblRelations"
         Dim data As New SQLHelper
         data.setSQLCommand(sSQL, CommandType.Text)
         Dim dt As DataTable = data.Filldata()
@@ -1913,15 +1913,12 @@ Public Class Service1
     Private Function getInsurees(ByVal FamilyId As Integer) As DataTable
         Dim sSQL As String = ""
         Dim data As New SQLHelper
-        sSQL = "SELECT ISNULL(I.Passport,'') IdentificationNumber, I.InsureeUUID, F.FamilyUUID, I.CHFID, LastName, OtherNames,  FORMAT(DOB, 'yyyy-MM-dd') DOB, Gender, Marital, CAST(IsHead AS INT)IsHead, ISNULL(I.Phone,'') Phone, CAST(CardIssued AS INT)CardIssued, R.RelationUUID Relationship,"
-        sSQL += " Prof.ProfessionUUID Profession, E.EducationUUID Education, ISNULL(I.Email,'')Email, TypeOfId, H.HFUUID HFUUID, ISNULL(CurrentAddress,'')CurrentAddress, GeoLocation, L.LocationUUID CurVillage,PhotoFileName PhotoPath,"
+        sSQL = "SELECT ISNULL(I.Passport,'') IdentificationNumber, I.InsureeUUID, F.FamilyUUID, I.CHFID, LastName, OtherNames,  FORMAT(DOB, 'yyyy-MM-dd') DOB, Gender, Marital, CAST(IsHead AS INT)IsHead, ISNULL(I.Phone,'') Phone, CAST(CardIssued AS INT)CardIssued, Relationship,"
+        sSQL += " ISNULL(Profession,'')Profession, ISNULL(Education,'')Education, ISNULL(I.Email,'')Email, TypeOfId, H.HFUUID HFUUID, ISNULL(CurrentAddress,'')CurrentAddress, GeoLocation, L.LocationUUID CurVillage,PhotoFileName PhotoPath,"
         sSQL += " id.IdentificationTypes, 0 isOffline"
         sSQL += " FROM tblInsuree I"
         sSQL += " INNER JOIN tblFamilies F ON F.FamilyID = I.FamilyID "
         sSQL += " LEFT JOIN tblHF H ON I.HfID = H.HFID"
-        sSQL += " LEFT JOIN tblRelations R ON R.RelationID = I.Relationship "
-        sSQL += " LEFT JOIN tblProfessions Prof ON Prof.ProfessionID = I.Profession "
-        sSQL += " LEFT JOIN tblEducations E ON E.EducationID = I.Education "
         sSQL += " LEFT JOIN tblPhotos P ON P.PhotoID = I.PhotoID AND P.ValidityTo IS NULL "
         sSQL += " LEFT JOIN tblIdentificationTypes Id ON Id.IdentificationCode = I.TypeOfId"
         sSQL += " LEFT JOIN tblLocations L ON I.CurrentVillage = L.LocationId"
