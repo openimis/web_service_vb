@@ -776,7 +776,18 @@ Public Class Service1
         Return JString
     End Function
     <WebMethod()>
-    Public Sub DiscontinuePolicy(ByVal RenewalId As Integer)
+    Public Sub DiscontinuePolicy(ByVal RenewalUUID As String)
+
+        Dim Extract As New IMISExtractsDAL
+        Dim RenewalId As Integer
+
+        Try
+            RenewalId = Extract.GetEntityIdByUUID(Guid.Parse(RenewalUUID), "Renewal", "tblPolicyRenewals")
+        Catch ex As Exception
+
+
+        End Try
+
         Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
         Dim con As New SqlConnection(ConStr)
         Dim sSQL As String = ""
@@ -1020,12 +1031,22 @@ Public Class Service1
 
 
     <WebMethod>
-    Public Function CreatePhoneExtracts(ByVal DistrictId As Integer, ByVal UserId As Integer, ByVal WithInsuree As Boolean) As Boolean
+    Public Function CreatePhoneExtracts(ByVal DistrictUUID As String, ByVal UserUUID As String, ByVal WithInsuree As Boolean) As Boolean
         Dim sp As New Stopwatch
         sp.Start()
 
         Dim Extracts As New PhoneExtracts
         Dim eExtractInfo As New eExtractInfo
+        Dim Extract As New IMISExtractsDAL
+        Dim UserId As Integer
+        Dim DistrictId As Integer
+
+        Try
+            DistrictId = Extract.GetEntityIdByUUID(Guid.Parse(DistrictUUID), "Location", "tblLocations")
+            UserId = Extract.GetEntityIdByUUID(Guid.Parse(UserUUID), "User", "tblUsers")
+        Catch ex As Exception
+
+        End Try
 
         eExtractInfo.DistrictID = DistrictId
         eExtractInfo.AuditUserID = UserId
@@ -1074,12 +1095,24 @@ Public Class Service1
 
     'added by amani 28/09
     <WebMethod>
-    Public Function CreateOfflineExtract(ByVal RegionId As Integer, ByVal DistrictId As Integer, ByVal UserId As Integer, ByVal WithInsuree As Boolean, ByVal ChkFullExtract As Boolean) As Boolean
+    Public Function CreateOfflineExtract(ByVal RegionUUID As String, ByVal DistrictUUID As String, ByVal UserUUID As String, ByVal WithInsuree As Boolean, ByVal ChkFullExtract As Boolean) As Boolean
 
         Dim Extracts As New OffLineExtracts
         Dim eExtractInfo As New eExtractInfo
         Dim Extract As New IMISExtractsDAL
         Dim eExtract As New tblExtracts
+        Dim UserId As Integer
+        Dim RegionId As Integer
+        Dim DistrictId As Integer
+
+        Try
+            RegionId = Extract.GetEntityIdByUUID(Guid.Parse(RegionUUID), "Location", "tblLocations")
+            DistrictId = Extract.GetEntityIdByUUID(Guid.Parse(DistrictUUID), "Location", "tblLocations")
+            UserId = Extract.GetEntityIdByUUID(Guid.Parse(UserUUID), "User", "tblUsers")
+        Catch ex As Exception
+
+        End Try
+
         ' Dim EmailMessage = "Offline extract is ready to download"
         Dim FolderPath As String = Server.MapPath(ConfigurationManager.AppSettings("Extracts_Offline"))
         eExtractInfo.WithInsuree = WithInsuree
@@ -1230,7 +1263,24 @@ Public Class Service1
 
     'Calculate The policyValue
     <WebMethod>
-    Public Function getPolicyValue(ByVal FamilyId As Integer, ByVal ProdId As Integer, ByVal PolicyId As Integer, ByVal PolicyStage As String, ByVal EnrollDate As String, ByVal PreviousPolicyId As Integer) As Double
+    Public Function getPolicyValue(ByVal FamilyUUID As String, ByVal ProdUUID As String, ByVal PolicyUUID As String, ByVal PolicyStage As String, ByVal EnrollDate As String, ByVal PreviousPolicyUUID As String) As Double
+
+        Dim Extract As New IMISExtractsDAL
+        Dim FamilyId As Integer
+        Dim ProdId As Integer
+        Dim PolicyId As Integer
+        Dim PreviousPolicyId As Integer
+
+        Try
+            FamilyId = Extract.GetEntityIdByUUID(Guid.Parse(FamilyUUID), "Family", "tblFamilies")
+            ProdId = Extract.GetEntityIdByUUID(Guid.Parse(ProdUUID), "Prod", "tblProduct")
+            PolicyId = Extract.GetEntityIdByUUID(Guid.Parse(PolicyUUID), "Policy", "tblPolicy")
+            PreviousPolicyId = Extract.GetEntityIdByUUID(Guid.Parse(PreviousPolicyUUID), "Policy", "tblPolicy")
+        Catch ex As Exception
+
+
+        End Try
+
         Dim data As New SQLHelper
         Dim sSQL As String = "uspPolicyValue"
         data.setSQLCommand(sSQL, CommandType.StoredProcedure)
@@ -1247,7 +1297,18 @@ Public Class Service1
 
     <WebMethod>
     <ScriptMethod(ResponseFormat:=ResponseFormat.Json)>
-    Public Function GetSnapshotIndicators(ByVal SnapshotDate As String, ByVal OfficerId As Integer) As String
+    Public Function GetSnapshotIndicators(ByVal SnapshotDate As String, ByVal OfficerUUID As String) As String
+
+        Dim Extract As New IMISExtractsDAL
+        Dim OfficerId As Integer
+
+        Try
+            OfficerId = Extract.GetEntityIdByUUID(Guid.Parse(OfficerUUID), "Officer", "tblOfficer")
+        Catch ex As Exception
+
+
+        End Try
+
         Dim data As New SQLHelper
         Dim sSQL As String = "SELECT Active, Expired, Idle, Suspended FROM dbo.udfGetSnapshotIndicators(@SnapshotDate,@OfficerId)"
         data.setSQLCommand(sSQL, CommandType.Text)
@@ -1264,7 +1325,18 @@ Public Class Service1
 
     <WebMethod>
     <ScriptMethod(ResponseFormat:=ResponseFormat.Json)>
-    Public Function GetCumulativeIndicators(ByVal DateFrom As String, ByVal DateTo As String, ByVal OfficerId As Integer) As String
+    Public Function GetCumulativeIndicators(ByVal DateFrom As String, ByVal DateTo As String, ByVal OfficerUUID As String) As String
+
+        Dim Extract As New IMISExtractsDAL
+        Dim OfficerId As Integer
+
+        Try
+            OfficerId = Extract.GetEntityIdByUUID(Guid.Parse(OfficerUUID), "Officer", "tblOfficer")
+        Catch ex As Exception
+
+
+        End Try
+
         Dim data As New SQLHelper
         Dim sSQL As String = "SELECT "
         sSQL += " ISNULL(dbo.udfNewPoliciesPhoneStatistics(@DateFrom,@DateTo,@OfficerId),0) NewPolicies,"
@@ -1375,8 +1447,19 @@ Public Class Service1
     End Function
 
     <WebMethod>
-    Public Function EnrollFamily(Family As String, Insuree As String, Policy As String, Premium As String, InsureePolicy As String, OfficerId As Integer, UserId As Integer, Pictures() As InsureeImages) As Integer
+    Public Function EnrollFamily(Family As String, Insuree As String, Policy As String, Premium As String, InsureePolicy As String, OfficerUUID As String, UserUUID As String, Pictures() As InsureeImages) As Integer
 
+        Dim Extract As New IMISExtractsDAL
+        Dim OfficerId As Integer
+        Dim UserId As Integer
+
+        Try
+            OfficerId = Extract.GetEntityIdByUUID(Guid.Parse(OfficerUUID), "Officer", "tblOfficer")
+            UserId = Extract.GetEntityIdByUUID(Guid.Parse(UserUUID), "User", "tblUsers")
+        Catch ex As Exception
+
+
+        End Try
 
         Dim sSQL As String = ""
         Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
@@ -1697,7 +1780,9 @@ Public Class Service1
         Return dt
     End Function
     Private Function getHFs() As DataTable
-        Dim sSQL As String = "SELECT HFID, HFCode, HFName, LocationId, HFLevel FROM tblHF WHERE ValidityTo IS NULL"
+        Dim sSQL As String = "SELECT HFUUID, HFCode, HFName, L.LocationUUID, HFLevel FROM tblHF Hf"
+        sSQL += " INNER JOIN tblLocations L ON L.LocationId = Hf.LocationId"
+        sSQL += " WHERE Hf.ValidityTo IS NULL"
         Dim data As New SQLHelper
         data.setSQLCommand(sSQL, CommandType.Text)
         Dim dt As DataTable = data.Filldata()
@@ -1721,7 +1806,9 @@ Public Class Service1
         Return dt
     End Function
     Private Function getLocations() As DataTable
-        Dim sSQL As String = "SELECT LocationId, LocationCode, LocationName, ParentLocationId, LocationType FROM tblLocations WHERE ValidityTo IS NULL AND NOT(LocationName='Funding' OR LocationCode='FR' OR LocationCode='FD' OR LocationCode='FW' OR LocationCode='FV')"
+        Dim sSQL As String = "SELECT L.LocationUUID, L.LocationCode, L.LocationName, L2.LocationUUID ParentLocationUUID, L.LocationType FROM tblLocations L"
+        sSQL += " INNER JOIN tblLocations L2 ON L.ParentLocationId = L2.LocationId"
+        sSQL += " WHERE L.ValidityTo IS NULL AND NOT(L.LocationName='Funding' OR L.LocationCode='FR' OR L.LocationCode='FD' OR L.LocationCode='FW' OR L.LocationCode='FV')"
         Dim data As New SQLHelper
         data.setSQLCommand(sSQL, CommandType.Text)
         Dim dt As DataTable = data.Filldata()
@@ -1729,7 +1816,9 @@ Public Class Service1
         Return dt
     End Function
     Private Function getOfficers() As DataTable
-        Dim sSQL As String = "SELECT OfficerId, Code, LastName, OtherNames, Phone, LocationId, OfficerIDSubst, FORMAT(WorksTo, 'yyyy-MM-dd')WorksTo FROM tblOfficer WHERE ValidityTo IS NULL"
+        Dim sSQL As String = "SELECT OfficerUUID, Code, LastName, OtherNames, Phone, L.LocationUUID, OfficerIDSubst, FORMAT(WorksTo, 'yyyy-MM-dd')WorksTo FROM tblOfficer O"
+        sSQL += " INNER JOIN tblLocations L ON L.LocationId = O.LocationId"
+        sSQL += " WHERE O.ValidityTo IS NULL"
         Dim data As New SQLHelper
         data.setSQLCommand(sSQL, CommandType.Text)
         Dim dt As DataTable = data.Filldata()
@@ -1737,7 +1826,9 @@ Public Class Service1
         Return dt
     End Function
     Private Function getPayers() As DataTable
-        Dim sSQL As String = "SELECT payerId, PayerName, LocationId FROM tblPayer WHERE ValidityTo IS NULL"
+        Dim sSQL As String = "SELECT payerUUID, PayerName, L.LocationUUID FROM tblPayer P"
+        sSQL += " INNER JOIN tblLocations L ON L.LocationId = P.LocationId"
+        sSQL += " WHERE P.ValidityTo IS NULL"
         Dim data As New SQLHelper
         data.setSQLCommand(sSQL, CommandType.Text)
         Dim dt As DataTable = data.Filldata()
@@ -1746,11 +1837,14 @@ Public Class Service1
     End Function
     Private Function getProducts() As DataTable
         Dim sSQL As String = ""
-        sSQL = "SELECT ProdId, ProductCode, ProductName, LocationId, InsurancePeriod, FORMAT(DateFrom, 'yyyy-MM-dd')DateFrom, FORMAT(DateTo, 'yyyy-MM-dd')DateTo, ConversionProdId , Lumpsum,"
-        sSQL += " MemberCount, PremiumAdult, PremiumChild, RegistrationLumpsum, RegistrationFee, GeneralAssemblyLumpSum, GeneralAssemblyFee,"
-        sSQL += " StartCycle1, StartCycle2, StartCycle3, StartCycle4, GracePeriodRenewal, MaxInstallments, WaitingPeriod, Threshold,"
-        sSQL += " RenewalDiscountPerc, RenewalDiscountPeriod, AdministrationPeriod, EnrolmentDiscountPerc, EnrolmentDiscountPeriod, GracePeriod"
-        sSQL += " FROM tblProduct WHERE ValidityTo IS NULL"
+        sSQL = "SELECT P.ProdUUID, P.ProductCode, P.ProductName, L.LocationUUID, P.InsurancePeriod, FORMAT(P.DateFrom, 'yyyy-MM-dd')DateFrom, FORMAT(P.DateTo, 'yyyy-MM-dd')DateTo, P2.ProdUUID ConversionProdId , P.Lumpsum,"
+        sSQL += " P.MemberCount, P.PremiumAdult, P.PremiumChild, P.RegistrationLumpsum, P.RegistrationFee, P.GeneralAssemblyLumpSum, P.GeneralAssemblyFee,"
+        sSQL += " P.StartCycle1, P.StartCycle2, P.StartCycle3, P.StartCycle4, P.GracePeriodRenewal, P.MaxInstallments, P.WaitingPeriod, P.Threshold,"
+        sSQL += " P.RenewalDiscountPerc, P.RenewalDiscountPeriod, P.AdministrationPeriod, P.EnrolmentDiscountPerc, P.EnrolmentDiscountPeriod, P.GracePeriod"
+        sSQL += " FROM tblProduct P"
+        sSQL += " INNER JOIN tblLocations L ON L.LocationId = P.LocationId"
+        sSQL += " LEFT JOIN tblProduct P2 ON P.ConversionProdId = P2.ProdId"
+        sSQL += " WHERE P.ValidityTo IS NULL"
 
         Dim data As New SQLHelper
         data.setSQLCommand(sSQL, CommandType.Text)
@@ -1799,10 +1893,11 @@ Public Class Service1
     Private Function getFamilies(ByVal FamilyId As Integer) As DataTable
         Dim sSQL As String = ""
         Dim data As New SQLHelper
-        sSQL = " SELECT F.FamilyId, I.InsureeId, LocationId, Poverty, FamilyType, FamilyAddress, Ethnicity, ConfirmationNo, ConfirmationType,"
+        sSQL = " SELECT F.FamilyUUID, I.InsureeUUID, L.LocationUUID, Poverty, FamilyType, FamilyAddress, Ethnicity, ConfirmationNo, ConfirmationType,"
         sSQL += " CAST(IsHead AS INT)IsHead, 0 isOffline"
         sSQL += " FROM tblFamilies F"
         sSQL += " INNER JOIN tblInsuree I ON I.FamilyID =F.FamilyID"
+        sSQL += " INNER JOIN tblLocations L ON F.LocationId =L.LocationId"
         sSQL += " WHERE F.ValidityTo IS NULL AND I.ValidityTo IS NULL AND F.FamilyID =@FamilyId AND  I.IsHead = 1"
         data.setSQLCommand(sSQL, CommandType.Text)
         data.params("@FamilyId", FamilyId)
@@ -1811,21 +1906,25 @@ Public Class Service1
         Return dt
     End Function
 
+
     '--Insuree to modify
 
     '
     Private Function getInsurees(ByVal FamilyId As Integer) As DataTable
         Dim sSQL As String = ""
         Dim data As New SQLHelper
-        sSQL = "SELECT ISNULL(I.Passport,'') IdentificationNumber, I.InsureeId, FamilyId, I.CHFID, LastName, OtherNames,  FORMAT(DOB, 'yyyy-MM-dd') DOB, Gender, Marital, CAST(IsHead AS INT)IsHead, ISNULL(Phone,'') Phone, CAST(CardIssued AS INT)CardIssued, Relationship,"
-        sSQL += " ISNULL(Profession,'')Profession, ISNULL(Education,'')Education, ISNULL(Email,'')Email, TypeOfId, HFID, ISNULL(CurrentAddress,'')CurrentAddress, GeoLocation, CurrentVillage CurVillage,PhotoFileName PhotoPath,"
+        sSQL = "SELECT ISNULL(I.Passport,'') IdentificationNumber, I.InsureeUUID, F.FamilyUUID, I.CHFID, LastName, OtherNames,  FORMAT(DOB, 'yyyy-MM-dd') DOB, Gender, Marital, CAST(IsHead AS INT)IsHead, ISNULL(I.Phone,'') Phone, CAST(CardIssued AS INT)CardIssued, Relationship,"
+        sSQL += " ISNULL(Profession,'')Profession, ISNULL(Education,'')Education, ISNULL(I.Email,'')Email, TypeOfId, H.HFUUID HFUUID, ISNULL(CurrentAddress,'')CurrentAddress, GeoLocation, L.LocationUUID CurVillage,PhotoFileName PhotoPath,"
         sSQL += " id.IdentificationTypes, 0 isOffline"
         sSQL += " FROM tblInsuree I"
+        sSQL += " INNER JOIN tblFamilies F ON F.FamilyID = I.FamilyID "
+        sSQL += " LEFT JOIN tblHF H ON I.HfID = H.HFID"
         sSQL += " LEFT JOIN tblPhotos P ON P.PhotoID = I.PhotoID AND P.ValidityTo IS NULL "
         sSQL += " LEFT JOIN tblIdentificationTypes Id ON Id.IdentificationCode = I.TypeOfId"
+        sSQL += " LEFT JOIN tblLocations L ON I.CurrentVillage = L.LocationId"
         sSQL += " WHERE I.ValidityTo IS NULL"
         ' sSQL += " AND (I.CHFID = @CHFID OR IsHead = 1)"
-        sSQL += " AND FamilyID = @FamilyId"
+        sSQL += " AND I.FamilyID = @FamilyId"
 
         data.setSQLCommand(sSQL, CommandType.Text)
         data.params("@FamilyId", FamilyId)
@@ -1935,7 +2034,17 @@ Public Class Service1
 
     <WebMethod()>
     <ScriptMethod(ResponseFormat:=ResponseFormat.Json)>
-    Public Function DownloadFamilyData(ByVal CHFID As String, ByVal LocationId As Integer) As String
+    Public Function DownloadFamilyData(ByVal CHFID As String, ByVal LocationUUID As String) As String
+
+        Dim Extract As New IMISExtractsDAL
+        Dim LocationId As Integer
+
+        Try
+            LocationId = Extract.GetEntityIdByUUID(Guid.Parse(LocationUUID), "Location", "tblLocations")
+        Catch ex As Exception
+
+        End Try
+
         Dim FamilyId As Integer
         Dim sSQL As String = ""
         Dim data As New SQLHelper
@@ -1962,10 +2071,9 @@ Public Class Service1
         If dt.Rows.Count = 0 Then Return "[]"
         FamilyId = dt.Rows(0)("FamilyID")
 
-
-
         Dim dtFamilies As DataTable = getFamilies(FamilyId)
         Dim dtInsurees As DataTable = getInsurees(FamilyId)
+
         'Dim dtPolicy As DataTable = getPolicy(FamilyId, CHFID)
         'Dim dtInsureePolicy As DataTable = getInsureePolicy(FamilyId, CHFID)
         'Dim dtPremiums As DataTable = getPremiums(FamilyId)
@@ -1983,7 +2091,19 @@ Public Class Service1
     End Function
 
     <WebMethod>
-    Public Function DeleteFromPhone(Id As Integer, AuditUserID As Integer, DeleteInfo As String) As Integer
+    Public Function DeleteFromPhone(UUID As String, AuditUserUUID As String, DeleteInfo As String) As Integer
+
+        Dim Extract As New IMISExtractsDAL
+        Dim Id As Integer
+        Dim AuditUserID As Integer
+
+        Try
+            Id = Extract.GetEntityIdByUUID(Guid.Parse(UUID), "Family", "tblFamilies")
+            AuditUserID = Extract.GetEntityIdByUUID(Guid.Parse(AuditUserUUID), "User", "tblUsers")
+        Catch ex As Exception
+
+        End Try
+
         Dim sSQL As String = ""
         Dim data As New SQLHelper
         sSQL = "uspDeleteFromPhone"
