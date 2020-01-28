@@ -105,8 +105,8 @@ Public Class IMISExtractsDAL
         '  data.params("@LocationId", SqlDbType.Int, DistrictID)
         data.params("@RowID", SqlDbType.BigInt, RowID)
 
-        ' dsResult = data.FilldataSet()
-        dtLocation = data.Filldata
+
+        dtLocation = data.Filldata()
         'dtRegion = data.Filldata(0)
         'dtDistricts = dsResult.Tables(1)
         'dtWards = dsResult.Tables(2)
@@ -121,6 +121,7 @@ Public Class IMISExtractsDAL
         data.params("@LocationId", SqlDbType.Int, DistrictID)
         data.params("@RowID", SqlDbType.BigInt, RowID)
 
+
         dsResult = data.FilldataSet()
 
         dtItems = dsResult.Tables(0)
@@ -131,16 +132,17 @@ Public Class IMISExtractsDAL
         dtPLServicesDetails = dsResult.Tables(5)
 
 
+
         Return True
     End Function
-    Public Function GetExportOfflineExtract3(ByRef eExtractInfo As eExtractInfo, ByVal RowID As Int64, ByRef dtICD As DataTable, ByRef dtHF As DataTable, ByRef dtPayer As DataTable, ByRef dtOfficer As DataTable, ByRef dtProduct As DataTable, ByRef dtProductItems As DataTable, ByRef dtProductServices As DataTable, ByRef dtRelDistr As DataTable, ByRef dtClaimAdmin As DataTable) As Boolean
+    Public Function GetExportOfflineExtract3(ByRef eExtractInfo As eExtractInfo, ByVal RowID As Int64, ByRef dtICD As DataTable, ByRef dtHF As DataTable, ByRef dtPayer As DataTable, ByRef dtOfficer As DataTable, ByRef dtProduct As DataTable, ByRef dtProductItems As DataTable, ByRef dtProductServices As DataTable, ByRef dtRelDistr As DataTable, ByRef dtClaimAdmin As DataTable, ByRef dtOfficerVillage As DataTable, ByRef dtGenders As DataTable, ByVal isFullExtract As Boolean) As Boolean
 
         Dim dsResult As New DataSet
         data.setSQLCommand("uspExportOffLineExtract3", CommandType.StoredProcedure, timeout:=0)
-        data.params("@RegionId", SqlDbType.Int, eExtractInfo.RegionId)
-        data.params("@DistrictId", SqlDbType.Int, eExtractInfo.DistrictId)
+        data.params("@RegionId", SqlDbType.Int, eExtractInfo.RegionID)
+        data.params("@DistrictId", SqlDbType.Int, eExtractInfo.DistrictID)
         data.params("@RowID", SqlDbType.BigInt, RowID)
-
+        data.params("@isFullExtract", SqlDbType.Bit, isFullExtract)
         dsResult = data.FilldataSet()
 
         dtICD = dsResult.Tables(0)
@@ -152,6 +154,8 @@ Public Class IMISExtractsDAL
         dtProductServices = dsResult.Tables(6)
         dtRelDistr = dsResult.Tables(7)
         dtClaimAdmin = dsResult.Tables(8)
+        dtOfficerVillage = dsResult.Tables(9)
+        dtGenders = dsResult.Tables(10)
 
         Return True
     End Function
@@ -160,10 +164,11 @@ Public Class IMISExtractsDAL
         ' Dim dsResult As New DataSet
         data.setSQLCommand("uspExportOffLineExtract4", CommandType.StoredProcedure, timeout:=0)
         ' data.params("@LocationId", SqlDbType.Int, DistrictID)
-        data.params("@RegionId", SqlDbType.Int, eExtractInfo.RegionId)
-        data.params("@DistrictId", SqlDbType.Int, eExtractInfo.DistrictId)
+        data.params("@RegionId", SqlDbType.Int, eExtractInfo.RegionID)
+        data.params("@DistrictId", SqlDbType.Int, eExtractInfo.DistrictID)
         data.params("@RowID", SqlDbType.BigInt, RowID)
         data.params("@WithInsuree", SqlDbType.Bit, eExtractInfo.WithInsuree)
+        'get Family
         If str = 1 Then
             dt = data.Filldata()
             Return True
@@ -174,8 +179,8 @@ Public Class IMISExtractsDAL
 
         data.setSQLCommand("uspExportOffLineExtract5", CommandType.StoredProcedure, timeout:=0)
         ' data.params("@LocationId", SqlDbType.Int, DistrictID)
-        data.params("@RegionId", SqlDbType.Int, eExtractInfo.RegionId)
-        data.params("@DistrictId", SqlDbType.Int, eExtractInfo.DistrictId)
+        data.params("@RegionId", SqlDbType.Int, eExtractInfo.RegionID)
+        data.params("@DistrictId", SqlDbType.Int, eExtractInfo.DistrictID)
         data.params("@RowID", SqlDbType.BigInt, RowID)
         data.params("@WithInsuree", SqlDbType.Bit, eExtractInfo.WithInsuree)
         If str = 2 Then
@@ -186,8 +191,8 @@ Public Class IMISExtractsDAL
 
         data.setSQLCommand("uspExportOffLineExtract6", CommandType.StoredProcedure, timeout:=0)
         ' data.params("@LocationId", SqlDbType.Int, DistrictID)
-        data.params("@RegionId", SqlDbType.Int, eExtractInfo.RegionId)
-        data.params("@DistrictId", SqlDbType.Int, eExtractInfo.DistrictId)
+        data.params("@RegionId", SqlDbType.Int, eExtractInfo.RegionID)
+        data.params("@DistrictId", SqlDbType.Int, eExtractInfo.DistrictID)
         data.params("@RowID", SqlDbType.BigInt, RowID)
         data.params("@WithInsuree", SqlDbType.Bit, eExtractInfo.WithInsuree)
         If str = 3 Then
@@ -197,8 +202,8 @@ Public Class IMISExtractsDAL
 
         data.setSQLCommand("uspExportOffLineExtract7", CommandType.StoredProcedure, timeout:=0)
         ' data.params("@LocationId", SqlDbType.Int, DistrictID)
-        data.params("@RegionId", SqlDbType.Int, eExtractInfo.RegionId)
-        data.params("@DistrictId", SqlDbType.Int, eExtractInfo.DistrictId)
+        data.params("@RegionId", SqlDbType.Int, eExtractInfo.RegionID)
+        data.params("@DistrictId", SqlDbType.Int, eExtractInfo.DistrictID)
         data.params("@RowID", SqlDbType.BigInt, RowID)
         data.params("@WithInsuree", SqlDbType.Bit, eExtractInfo.WithInsuree)
         If str = 4 Then
@@ -208,8 +213,8 @@ Public Class IMISExtractsDAL
 
         data.setSQLCommand("uspExportOffLineExtract8", CommandType.StoredProcedure, timeout:=0)
         ' data.params("@LocationId", SqlDbType.Int, DistrictID)
-        data.params("@RegionId", SqlDbType.Int, eExtractInfo.RegionId)
-        data.params("@DistrictId", SqlDbType.Int, eExtractInfo.DistrictId)
+        data.params("@RegionId", SqlDbType.Int, eExtractInfo.RegionID)
+        data.params("@DistrictId", SqlDbType.Int, eExtractInfo.DistrictID)
         data.params("@RowID", SqlDbType.BigInt, RowID)
         data.params("@WithInsuree", SqlDbType.Bit, eExtractInfo.WithInsuree)
         If str = 5 Then
@@ -219,8 +224,8 @@ Public Class IMISExtractsDAL
 
         data.setSQLCommand("uspExportOffLineExtract9", CommandType.StoredProcedure, timeout:=0)
         ' data.params("@LocationId", SqlDbType.Int, DistrictID)
-        data.params("@RegionId", SqlDbType.Int, eExtractInfo.RegionId)
-        data.params("@DistrictId", SqlDbType.Int, eExtractInfo.DistrictId)
+        data.params("@RegionId", SqlDbType.Int, eExtractInfo.RegionID)
+        data.params("@DistrictId", SqlDbType.Int, eExtractInfo.DistrictID)
         data.params("@RowID", SqlDbType.BigInt, RowID)
         data.params("@WithInsuree", SqlDbType.Bit, eExtractInfo.WithInsuree)
         If str = 6 Then
@@ -259,6 +264,7 @@ Public Class IMISExtractsDAL
         'data.params("@VillagesIns", SqlDbType.Int, Nothing, ParameterDirection.Output)
         'data.params("@VillagesUpd", SqlDbType.Int, Nothing, ParameterDirection.Output)
         data.params("@xLocations", dtLocations)
+
         'data.params("@xtDistricts", dtDistricts)
         'data.params("@xtWards", dtWards)
         'data.params("@xtVillages", dtVillages)
@@ -299,6 +305,7 @@ Public Class IMISExtractsDAL
         data.params("@xtPLItemsDetail", dtPLItemsDetails)
         data.params("@xtPLServicesDetail", dtPLServicesDetails)
 
+
         dsResult = data.FilldataSet()
 
         eExtractInfo.ItemsIns = data.sqlParameters("@ItemsIns")
@@ -316,7 +323,7 @@ Public Class IMISExtractsDAL
 
         Return True
     End Function
-    Public Function ImportOfflineExtract3(ByRef eExtractInfo As eExtractInfo, ByRef dtICD As DataTable, ByRef dtHF As DataTable, ByRef dtPayer As DataTable, ByRef dtOfficer As DataTable, ByRef dtProduct As DataTable, ByRef dtProductItems As DataTable, ByRef dtProductServices As DataTable, ByRef dtRelDistr As DataTable, ByRef dtClaimAdmin As DataTable) As Boolean
+    Public Function ImportOfflineExtract3(ByRef eExtractInfo As eExtractInfo, ByRef dtICD As DataTable, ByRef dtHF As DataTable, ByRef dtPayer As DataTable, ByRef dtOfficer As DataTable, ByRef dtProduct As DataTable, ByRef dtProductItems As DataTable, ByRef dtProductServices As DataTable, ByRef dtRelDistr As DataTable, ByRef dtClaimAdmin As DataTable, ByRef dtOfficerVillage As DataTable, ByRef dtGender As DataTable) As Boolean
         Dim dsResult As New DataSet
         data.setSQLCommand("uspImportOffLineExtract3", CommandType.StoredProcedure, timeout:=0)
         data.params("@HFID", SqlDbType.Int, eExtractInfo.HFID)
@@ -341,6 +348,9 @@ Public Class IMISExtractsDAL
         data.params("@ClaimAdminIns", SqlDbType.Int, Nothing, ParameterDirection.Output)
         data.params("@ClaimAdminUpd", SqlDbType.Int, Nothing, ParameterDirection.Output)
 
+        data.params("@OfficerVillageIns", SqlDbType.Int, Nothing, ParameterDirection.Output)
+        data.params("@OfficerVillageUpd", SqlDbType.Int, Nothing, ParameterDirection.Output)
+
 
         data.params("@xtICDCodes", dtICD)
         data.params("@xtHF", dtHF)
@@ -351,6 +361,8 @@ Public Class IMISExtractsDAL
         data.params("@xtProductServices", dtProductServices)
         data.params("@xtRelDistr", dtRelDistr)
         data.params("@xtClaimAdmin", dtClaimAdmin)
+        data.params("@xtVillageOfficer", dtOfficerVillage)
+        data.params("@xGender", dtGender)
 
         dsResult = data.FilldataSet()
 
@@ -404,11 +416,11 @@ Public Class IMISExtractsDAL
 
         eExtractInfo.FamiliesIns = data.sqlParameters("@FamiliesIns")
         eExtractInfo.FamiliesUpd = data.sqlParameters("@FamiliesUpd")
-        eExtractInfo.InsureeIns = data.sqlParameters("@InsureeIns")
+        eExtractInfo.InsureeIns = If(data.sqlParameters("@InsureeIns") Is DBNull.Value, 0, data.sqlParameters("@InsureeIns"))
         eExtractInfo.InsureeUpd = data.sqlParameters("@InsureeUpd")
         eExtractInfo.PhotoIns = data.sqlParameters("@PhotoIns")
         eExtractInfo.PhotoUpd = data.sqlParameters("@PhotoUpd")
-        eExtractInfo.PolicyIns = data.sqlParameters("@PolicyIns")
+        eExtractInfo.PolicyIns = If(data.sqlParameters("@PolicyIns") Is DBNull.Value, 0, data.sqlParameters("@PolicyIns"))
         eExtractInfo.PolicyUpd = data.sqlParameters("@PolicyUpd")
         eExtractInfo.PremiumIns = data.sqlParameters("@PremiumIns")
         eExtractInfo.PremiumUpd = data.sqlParameters("@PremiumUpd")
@@ -441,8 +453,8 @@ Public Class IMISExtractsDAL
         data.params("@ExtractType", SqlDbType.TinyInt, eExtract.ExtractType)
         data.params("@Sequence", SqlDbType.Int, eExtract.ExtractSequence)
         data.params("@ExtractDate", SqlDbType.DateTime, Now())
-        data.params("@ExtractFileName", SqlDbType.NVarChar, 255, eExtract.extractFileName)
-        data.params("@ExtractFolder", SqlDbType.NVarChar, 255, eExtract.extractFolder)
+        data.params("@ExtractFileName", SqlDbType.NVarChar, 255, eExtract.ExtractFileName)
+        data.params("@ExtractFolder", SqlDbType.NVarChar, 255, eExtract.ExtractFolder)
         data.params("@LocationId", SqlDbType.Int, eExtract.LocationId)
         data.params("@HFID", SqlDbType.Int, eExtract.HFID)
         data.params("@AppVersionBackend", SqlDbType.Decimal, eExtract.AppVersionBackend)

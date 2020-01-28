@@ -350,6 +350,8 @@ Public Class OffLineExtracts
         Dim dtProductItems As New DataTable
         Dim dtProductServices As New DataTable
         Dim dtRelDistr As New DataTable
+        Dim dtGenders As New DataTable
+        Dim dtOfficerVillage As New DataTable
         '4
         Dim dtFamilies As New DataTable
         Dim dtInsuree As New DataTable
@@ -424,7 +426,8 @@ Public Class OffLineExtracts
             eExtractInfo.PLServicesCS = dtPLServices.Rows.Count
             eExtractInfo.PLServicesDetailsCS = dtPLServicesDetails.Rows.Count
 
-            Extract.GetExportOfflineExtract3(eExtractInfo, eExtract.RowID, dtICD, dtHF, dtPayer, dtOfficer, dtProduct, dtProductItems, dtProductServices, dtRelDistr, dtClaimAdmin)
+            Dim isFullExtract As Boolean = eExtractInfo.ExtractType = 2
+            Extract.GetExportOfflineExtract3(eExtractInfo, eExtract.RowID, dtICD, dtHF, dtPayer, dtOfficer, dtProduct, dtProductItems, dtProductServices, dtRelDistr, dtClaimAdmin, dtOfficerVillage, dtGenders, isFullExtract)
             'now create the XML encrypted files in the FTP Folder 
             EncryptData(strFile & "/xICD.xml", "ICD", dtICD)
             EncryptData(strFile & "/xHF.xml", "HF", dtHF)
@@ -435,6 +438,8 @@ Public Class OffLineExtracts
             EncryptData(strFile & "/xProductServices.xml", "ProductServices", dtProductServices)
             EncryptData(strFile & "/xRelDistr.xml", "RelDistr", dtRelDistr)
             EncryptData(strFile & "/xClaimAdmin.xml", "ClaimAdmin", dtClaimAdmin)
+            EncryptData(strFile & "/xOfficerVillage.xml", "OfficerVillage", dtOfficerVillage)
+            EncryptData(strFile & "/xGender.xml", "Genders", dtGenders)
 
             eExtractInfo.RegionCS = dtLocations.Select("LocationType='R'  AND ValidityTo IS NULL").Count
             eExtractInfo.DistrictsCS = dtLocations.Select("LocationType='D'  AND ValidityTo IS NULL").Count
@@ -495,7 +500,7 @@ Public Class OffLineExtracts
             End If
             eExtract.ExtractDate = Date.Now
             eExtract.HFID = 0
-            
+
             eExtract.AppVersionBackend = eDefaults.AppVersionBackEnd
             eExtract.ExtractFolder = eDefaults.FTPOffLineExtractFolder
             eExtract.ExtractType = eExtractInfo.ExtractType
@@ -553,7 +558,7 @@ Public Class OffLineExtracts
         End Try
     End Function
 
-    
+
     Public Sub DeleteAllLocalRecords()
         Dim Ext As New IMISExtractsDAL
         Ext.DeleteAllLocalRecords()
