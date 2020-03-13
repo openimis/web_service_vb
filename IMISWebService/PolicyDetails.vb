@@ -35,6 +35,16 @@ Public Class PolicyDetails
     Private _Ded2 As Nullable(Of Double)
     Private _Ceiling1 As Nullable(Of Double)
     Private _Ceiling2 As Nullable(Of Double)
+    Private _TotalAdmissionsLeft As Nullable(Of Integer)
+    Private _TotalVisitsLeft As Nullable(Of Integer)
+    Private _TotalConsultationsLeft As Nullable(Of Integer)
+    Private _TotalSurgeriesLeft As Nullable(Of Integer)
+    Private _TotalDelivieriesLeft As Nullable(Of Integer)
+    Private _TotalAntenatalLeft As Nullable(Of Integer)
+    Private _ConsultationAmountLeft As Nullable(Of Integer)
+    Private _SurgeryAmountLeft As Nullable(Of Integer)
+    Private _HospitalizationAmountLeft As Nullable(Of Integer)
+    Private _AntenatalAmountLeft As Nullable(Of Integer)
 
 
 
@@ -118,4 +128,95 @@ Public Class PolicyDetails
             _ProductCode = value
         End Set
     End Property
+
+    Public Property TotalAdmissionsLeft() As Nullable(Of Integer)
+        Get
+            Return _TotalAdmissionsLeft
+        End Get
+        Set(ByVal value As Nullable(Of Integer))
+            _TotalAdmissionsLeft = value
+        End Set
+    End Property
+
+    Public Property TotalVisitsLeft() As Nullable(Of Integer)
+        Get
+            Return _TotalVisitsLeft
+        End Get
+        Set(ByVal value As Nullable(Of Integer))
+            _TotalVisitsLeft = value
+        End Set
+    End Property
+
+    Public Property TotalConsultationsLeft() As Nullable(Of Integer)
+        Get
+            Return _TotalConsultationsLeft
+        End Get
+        Set(ByVal value As Nullable(Of Integer))
+            _TotalConsultationsLeft = value
+        End Set
+    End Property
+
+    Public Property TotalSurgeriesLeft() As Nullable(Of Integer)
+        Get
+            Return _TotalSurgeriesLeft
+        End Get
+        Set(ByVal value As Nullable(Of Integer))
+            _TotalSurgeriesLeft = value
+        End Set
+    End Property
+
+    Public Property TotalDelivieriesLeft() As Nullable(Of Integer)
+        Get
+            Return _TotalDelivieriesLeft
+        End Get
+        Set(ByVal value As Nullable(Of Integer))
+            _TotalDelivieriesLeft = value
+        End Set
+    End Property
+
+    Public Property TotalAntenatalLeft() As Nullable(Of Integer)
+        Get
+            Return _TotalAntenatalLeft
+        End Get
+        Set(ByVal value As Nullable(Of Integer))
+            _TotalAntenatalLeft = value
+        End Set
+    End Property
+
+    Public Property ConsultationAmountLeft() As Nullable(Of Integer)
+        Get
+            Return _ConsultationAmountLeft
+        End Get
+        Set(ByVal value As Nullable(Of Integer))
+            _ConsultationAmountLeft = value
+        End Set
+    End Property
+
+    Public Property SurgeryAmountLeft() As Nullable(Of Integer)
+        Get
+            Return _SurgeryAmountLeft
+        End Get
+        Set(ByVal value As Nullable(Of Integer))
+            _SurgeryAmountLeft = value
+        End Set
+    End Property
+
+    Public Property HospitalizationAmountLeft() As Nullable(Of Integer)
+        Get
+            Return _HospitalizationAmountLeft
+        End Get
+        Set(ByVal value As Nullable(Of Integer))
+            _HospitalizationAmountLeft = value
+        End Set
+    End Property
+
+    Public Property AntenatalAmountLeft() As Nullable(Of Integer)
+        Get
+            Return _AntenatalAmountLeft
+        End Get
+        Set(ByVal value As Nullable(Of Integer))
+            _AntenatalAmountLeft = value
+        End Set
+    End Property
 End Class
+

@@ -90,18 +90,30 @@ Public Class Service1
         Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
         Dim con As New SqlConnection(ConStr)
         Dim sSQL As String = "uspPolicyInquiry"
-
+        Dim sSQL2 As String = "uspServiceItemEnquiry"
         Dim cmd As New SqlCommand(sSQL, con)
+        Dim cmd2 As New SqlCommand(sSQL2, con)
         cmd.CommandType = CommandType.StoredProcedure
-
+        cmd2.CommandType = CommandType.StoredProcedure
         cmd.Parameters.Add("@CHFID", SqlDbType.VarChar, 12).Value = CHFID
-
+        cmd2.Parameters.Add("@CHFID", SqlDbType.VarChar, 12).Value = CHFID
+        cmd2.Parameters.Add("@ItemCode", SqlDbType.NVarChar, 6).Value = ""
+        cmd2.Parameters.Add("@ServiceCode", SqlDbType.NVarChar, 6).Value = ""
+        cmd2.Parameters.Add("@MinDateService", SqlDbType.Date, Nothing).Direction = ParameterDirection.Output
+        cmd2.Parameters.Add("@ServiceLeft", SqlDbType.Int, 0).Direction = ParameterDirection.Output
+        cmd2.Parameters.Add("@MinDateItem", SqlDbType.Date, Nothing).Direction = ParameterDirection.Output
+        cmd2.Parameters.Add("@ItemLeft", SqlDbType.Int, 0).Direction = ParameterDirection.Output
+        cmd2.Parameters.Add("@IsItemOk", SqlDbType.Bit, 0).Direction = ParameterDirection.Output
+        cmd2.Parameters.Add("@IsServiceOk", SqlDbType.Bit, 0).Direction = ParameterDirection.Output
         If con.State = ConnectionState.Closed Then con.Open()
 
         Dim da As New SqlDataAdapter(cmd)
+        Dim da2 As New SqlDataAdapter(cmd2)
         Dim dt As New DataTable
-        da.Fill(dt)
+        Dim dt2 As New DataTable
 
+        da.Fill(dt)
+        da2.Fill(dt2)
         Dim Insuree As InsureeDetails() = New InsureeDetails() {}
         Dim Policy As PolicyDetails() = New PolicyDetails() {}
 
@@ -112,7 +124,7 @@ Public Class Service1
         Dim cnt As Integer = 0
         Dim cntPolicy As Integer = 0
 
-        If dt.Rows.Count > 0 Then
+        If dt.Rows.Count > 0 Or dt2.Rows.Count > 0 Then
             While j < dt.Rows.Count
                 ReDim Preserve Insuree(cnt)
                 ReDim Policy(cntPolicy)
@@ -142,6 +154,7 @@ Public Class Service1
                     Policy(cntPolicy).ProductName = row("ProductName").ToString
                     Policy(cntPolicy).ExpiryDate = row("ExpiryDate").ToString
                     Policy(cntPolicy).Status = row("Status")
+
                     'If Not row("DedType") Is DBNull.Value Then Policy(cntPolicy).DedType = row("DedType") 'IIf(row("DedType") Is DBNull.Value, Nothing, row("DedType"))
                     'If Not row("Ded1") Is DBNull.Value Then Policy(cntPolicy).Ded1 = Convert.ToDouble(row("Ded1")) 'IIf(row("Ded1") Is DBNull.Value, Nothing, Convert.ToDouble(row("Ded1")))
                     'If Not row("Ded2") Is DBNull.Value Then Policy(cntPolicy).Ded2 = Convert.ToDouble(row("Ded2")) ' IIf(row("Ded2") Is DBNull.Value, Nothing, Convert.ToDouble(row("Ded2")))
@@ -178,6 +191,72 @@ Public Class Service1
                         Policy(cntPolicy).Ceiling2 = Convert.ToDouble(row("Ceiling2"))
                     End If
 
+                    'Added by Salumu
+                    Dim row2() As DataRow = dt2.Select("ProdID = " & row("ProdID"), "")
+                    If row2.Length > 0 Then
+
+
+
+                        If row2(0)("TotalAdmissionsLeft") Is DBNull.Value Then
+                            Policy(cntPolicy).TotalAdmissionsLeft = Nothing
+                        Else
+                            Policy(cntPolicy).TotalAdmissionsLeft = Convert.ToInt32(row2(0)("TotalAdmissionsLeft"))
+                        End If
+
+                        If row2(0)("TotalVisitsLeft") Is DBNull.Value Then
+                            Policy(cntPolicy).TotalVisitsLeft = Nothing
+                        Else
+                            Policy(cntPolicy).TotalVisitsLeft = Convert.ToInt32(row2(0)("TotalVisitsLeft"))
+                        End If
+
+                        If row2(0)("TotalConsultationsLeft") Is DBNull.Value Then
+                            Policy(cntPolicy).TotalConsultationsLeft = Nothing
+                        Else
+                            Policy(cntPolicy).TotalConsultationsLeft = Convert.ToInt32(row2(0)("TotalConsultationsLeft"))
+                        End If
+
+                        If row2(0)("TotalSurgeriesLeft") Is DBNull.Value Then
+                            Policy(cntPolicy).TotalSurgeriesLeft = Nothing
+                        Else
+                            Policy(cntPolicy).TotalSurgeriesLeft = Convert.ToInt32(row2(0)("TotalSurgeriesLeft"))
+                        End If
+
+                        If row2(0)("TotalDelivieriesLeft") Is DBNull.Value Then
+                            Policy(cntPolicy).TotalDelivieriesLeft = Nothing
+                        Else
+                            Policy(cntPolicy).TotalDelivieriesLeft = Convert.ToInt32(row2(0)("TotalDelivieriesLeft"))
+                        End If
+
+                        If row2(0)("TotalAntenatalLeft") Is DBNull.Value Then
+                            Policy(cntPolicy).TotalAntenatalLeft = Nothing
+                        Else
+                            Policy(cntPolicy).TotalAntenatalLeft = Convert.ToInt32(row2(0)("TotalAntenatalLeft"))
+                        End If
+
+                        If row2(0)("ConsultationAmountLeft") Is DBNull.Value Then
+                            Policy(cntPolicy).ConsultationAmountLeft = Nothing
+                        Else
+                            Policy(cntPolicy).ConsultationAmountLeft = Convert.ToInt32(row2(0)("ConsultationAmountLeft"))
+                        End If
+
+                        If row2(0)("SurgeryAmountLeft") Is DBNull.Value Then
+                            Policy(cntPolicy).SurgeryAmountLeft = Nothing
+                        Else
+                            Policy(cntPolicy).SurgeryAmountLeft = Convert.ToInt32(row2(0)("SurgeryAmountLeft"))
+                        End If
+
+                        If row2(0)("HospitalizationAmountLeft") Is DBNull.Value Then
+                            Policy(cntPolicy).HospitalizationAmountLeft = Nothing
+                        Else
+                            Policy(cntPolicy).HospitalizationAmountLeft = Convert.ToInt32(row2(0)("HospitalizationAmountLeft"))
+                        End If
+
+                        If row2(0)("AntenatalAmountLeft") Is DBNull.Value Then
+                            Policy(cntPolicy).AntenatalAmountLeft = Nothing
+                        Else
+                            Policy(cntPolicy).AntenatalAmountLeft = Convert.ToInt32(row2(0)("AntenatalAmountLeft"))
+                        End If
+                    End If
                     cntPolicy += 1
                     i += 1
                 End While
@@ -1286,7 +1365,7 @@ Public Class Service1
     End Function
 
 #Region "Android Front End"
-    <WebMethod> _
+    <WebMethod>
     Public Function isValidLogin(LoginName As String, Password As String) As Integer
         Dim sSQL As String = ""
         Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
@@ -1644,6 +1723,7 @@ Public Class Service1
             Return RV
 
         Catch ex As Exception
+            EventLog.WriteEntry("IMIS", ex.Message + "\n" + ex.StackTrace, EventLogEntryType.Error, 991)
             Throw New Exception(ex.Message)
         Finally
             cmd = Nothing

@@ -68,9 +68,9 @@ Public Class OffLineExtracts
 
             If Not File.Exists(strZippedFilename) Then Exit Sub
             If IntPtr.Size = 8 Then 'If 64 bit
-                SevenZipBase.SetLibraryPath(System.AppDomain.CurrentDomain.RelativeSearchPath & "\7z64.dll")
+                SevenZipBase.SetLibraryPath(System.AppDomain.CurrentDomain.RelativeSearchPath & "\bin\7z64.dll")
             Else
-                SevenZipBase.SetLibraryPath(System.AppDomain.CurrentDomain.RelativeSearchPath & "\7z.dll")
+                SevenZipBase.SetLibraryPath(System.AppDomain.CurrentDomain.RelativeSearchPath & "\bin\7z.dll")
             End If
 
             Dim Ext As SevenZipExtractor = New SevenZipExtractor(strZippedFilename, RARPWD)
@@ -91,9 +91,9 @@ Public Class OffLineExtracts
         'StartProcess(WinRarFolder, cmd)
 
         If IntPtr.Size = 8 Then 'If 64 bit
-            SevenZipBase.SetLibraryPath(System.AppDomain.CurrentDomain.RelativeSearchPath & "\7z64.dll")
+            SevenZipBase.SetLibraryPath(System.AppDomain.CurrentDomain.RelativeSearchPath & "\bin\7z64.dll")
         Else
-            SevenZipBase.SetLibraryPath(System.AppDomain.CurrentDomain.RelativeSearchPath & "\7z.dll")
+            SevenZipBase.SetLibraryPath(System.AppDomain.CurrentDomain.RelativeSearchPath & "\bin\7z.dll")
         End If
 
         Dim Compressor As New SevenZipCompressor
