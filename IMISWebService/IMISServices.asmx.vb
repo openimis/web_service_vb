@@ -84,6 +84,7 @@ Public Class Service1
         Return JString
 
     End Function
+
     <WebMethod()>
     <ScriptMethod(ResponseFormat:=ResponseFormat.Json)>
     Public Function EnquireInsuree(ByVal CHFID As String) As String
@@ -2010,7 +2011,173 @@ Public Class Service1
 
 #End Region
 
+    ' Méthode pour ajouter une nouvelle pièce jointe
+    <WebMethod()>
+    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)>
+    Public Function CreateAttachment(FilePath As String, Description As String, AuditUserID As Integer, InsureeID As Integer) As String
+        ' Set response type to JSON
+        Context.Response.ContentType = "application/json"
 
+        Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
+        Dim con As New SqlConnection(ConStr)
+
+        ' Check if the file exists at the specified path
+        If Not File.Exists(FilePath) Then
+            Return New JavaScriptSerializer().Serialize(New With {Key .Message = "File not found"})
+        End If
+
+        ' Extract file information
+        Dim FileName As String = Path.GetFileName(FilePath)
+        Dim FileType As String = Path.GetExtension(FilePath).Replace(".", "").ToUpper() ' File extension without the dot
+        Dim FileSize As Long = New FileInfo(FilePath).Length ' File size in bytes
+
+        ' Create UUID for the attachment
+        Dim AttachmentUUID As Guid = Guid.NewGuid()
+
+        ' SQL command to insert the data into the table, including InsureeID
+        Dim cmd As New SqlCommand("INSERT INTO tblAttachment (AttachmentUUID, FileName, FileType, FileSize, FilePath, Description, AuditUserID, InsureeID) VALUES (@AttachmentUUID, @FileName, @FileType, @FileSize, @FilePath, @Description, @AuditUserID, @InsureeID); SELECT SCOPE_IDENTITY();", con)
+
+        cmd.Parameters.AddWithValue("@AttachmentUUID", AttachmentUUID)
+        cmd.Parameters.AddWithValue("@FileName", FileName)
+        cmd.Parameters.AddWithValue("@FileType", FileType)
+        cmd.Parameters.AddWithValue("@FileSize", FileSize)
+        cmd.Parameters.AddWithValue("@FilePath", FilePath)
+        cmd.Parameters.AddWithValue("@Description", Description)
+        cmd.Parameters.AddWithValue("@AuditUserID", AuditUserID)
+        cmd.Parameters.AddWithValue("@InsureeID", InsureeID) ' Add InsureeID parameter
+
+        If con.State = ConnectionState.Closed Then con.Open()
+        Dim attachmentID As Integer = Convert.ToInt32(cmd.ExecuteScalar())
+        con.Close()
+
+        ' Return a success message with the attachment ID and UUID
+        Return New JavaScriptSerializer().Serialize(New With {
+        Key .AttachmentID = attachmentID,
+        Key .AttachmentUUID = AttachmentUUID.ToString(),
+        Key .Message = "Attachment created successfully"
+    })
+    End Function
+
+
+    'Methode pour récupérer une pièce jointe par ID (get unitaire)
+    <WebMethod()>
+    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)>
+    Public Function GetAttachment(AttachmentID As Integer) As String
+        ' Set response type to JSON
+        Context.Response.ContentType = "application/json"
+
+        Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
+        Dim con As New SqlConnection(ConStr)
+
+        ' SQL command to select the attachment based on AttachmentID
+        Dim cmd As New SqlCommand("SELECT AttachmentUUID, FileName, FileType, FileSize, FilePath, Description, AuditUserID, InsureeID FROM tblAttachment WHERE AttachmentID = @AttachmentID", con)
+        cmd.Parameters.AddWithValue("@AttachmentID", AttachmentID)
+
+        Dim attachment As Object = Nothing
+
+        If con.State = ConnectionState.Closed Then con.Open()
+        Using reader As SqlDataReader = cmd.ExecuteReader()
+            If reader.Read() Then
+                ' Read the attachment details into an anonymous object
+                attachment = New With {
+                Key .AttachmentUUID = reader("AttachmentUUID"),
+                Key .FileName = reader("FileName"),
+                Key .FileType = reader("FileType"),
+                Key .FileSize = reader("FileSize"),
+                Key .FilePath = reader("FilePath"),
+                Key .Description = reader("Description"),
+                Key .AuditUserID = reader("AuditUserID"),
+                Key .InsureeID = reader("InsureeID")
+            }
+            End If
+        End Using
+        con.Close()
+
+        If attachment IsNot Nothing Then
+            ' Return the attachment details as a JSON string
+            Return New JavaScriptSerializer().Serialize(New With {
+            Key .Attachment = attachment,
+            Key .Message = "Attachment retrieved successfully"
+        })
+        Else
+            ' Return a not found message
+            Return New JavaScriptSerializer().Serialize(New With {Key .Message = "Attachment not found"})
+        End If
+    End Function
+
+    'Methode pour obtenir toutes les pièces jointes d'un Assuré (InsureeId)
+    <WebMethod()>
+    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)>
+    Public Function GetAttachmentsByInsureeID(InsureeID As Integer) As String
+        ' Set response type to JSON
+        Context.Response.ContentType = "application/json"
+
+        Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
+        Dim con As New SqlConnection(ConStr)
+
+        ' SQL command to select all attachments based on InsureeID
+        Dim cmd As New SqlCommand("SELECT AttachmentID, AttachmentUUID, FileName, FileType, FileSize, FilePath, Description, AuditUserID FROM tblAttachment WHERE InsureeID = @InsureeID", con)
+        cmd.Parameters.AddWithValue("@InsureeID", InsureeID)
+
+        Dim attachments As New List(Of Object)()
+
+        If con.State = ConnectionState.Closed Then con.Open()
+        Using reader As SqlDataReader = cmd.ExecuteReader()
+            While reader.Read()
+                ' Read each attachment's details into an anonymous object
+                Dim attachment = New With {
+                Key .AttachmentID = reader("AttachmentID"),
+                Key .AttachmentUUID = reader("AttachmentUUID"),
+                Key .FileName = reader("FileName"),
+                Key .FileType = reader("FileType"),
+                Key .FileSize = reader("FileSize"),
+                Key .FilePath = reader("FilePath"),
+                Key .Description = reader("Description"),
+                Key .AuditUserID = reader("AuditUserID")
+            }
+                attachments.Add(attachment) ' Add attachment to the list
+            End While
+        End Using
+        con.Close()
+
+        ' Return the list of attachments or a not found message
+        If attachments.Count > 0 Then
+            Return New JavaScriptSerializer().Serialize(New With {
+            Key .Attachments = attachments,
+            Key .Message = "Attachments retrieved successfully"
+        })
+        Else
+            Return New JavaScriptSerializer().Serialize(New With {Key .Message = "No attachments found for this InsureeID"})
+        End If
+    End Function
+
+    'Methode pour supprimer une pièce jointe
+
+    <WebMethod()>
+    <ScriptMethod(ResponseFormat:=ResponseFormat.Json)>
+    Public Function DeleteAttachment(AttachmentID As Integer) As String
+        ' Set response type to JSON
+        Context.Response.ContentType = "application/json"
+
+        Dim ConStr As String = ConfigurationManager.ConnectionStrings("CHF_CENTRALConnectionString").ConnectionString.ToString
+        Dim con As New SqlConnection(ConStr)
+
+        ' SQL command to delete the attachment based on AttachmentID
+        Dim cmd As New SqlCommand("DELETE FROM tblAttachment WHERE AttachmentID = @AttachmentID", con)
+        cmd.Parameters.AddWithValue("@AttachmentID", AttachmentID)
+
+        If con.State = ConnectionState.Closed Then con.Open()
+
+        Dim rowsAffected As Integer = cmd.ExecuteNonQuery()
+        con.Close()
+
+        ' Return a success or failure message
+        If rowsAffected > 0 Then
+            Return New JavaScriptSerializer().Serialize(New With {Key .Message = "Attachment deleted successfully"})
+        Else
+            Return New JavaScriptSerializer().Serialize(New With {Key .Message = "Attachment not found or could not be deleted"})
+        End If
+    End Function
 
 End Class
 
